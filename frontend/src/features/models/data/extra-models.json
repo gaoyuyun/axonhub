@@ -1,0 +1,656 @@
+{
+  "openai": [
+    {
+      "id": "gpt-oss-120b",
+      "name": "gpt-oss-120b",
+      "attachment": false,
+      "reasoning": {
+        "supported": true,
+        "default": true
+      },
+      "temperature": false,
+      "tool_call": true,
+      "release_date": "2025-08-05",
+      "last_updated": "2025-08-05",
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "open_weights": true,
+      "limit": {
+        "context": 131072,
+        "output": 131072
+      },
+      "display_name": "gpt-oss-120b"
+    },
+    {
+      "id": "gpt-oss-20b",
+      "name": "gpt-oss-20b",
+      "attachment": false,
+      "reasoning": {
+        "supported": true,
+        "default": true
+      },
+      "temperature": false,
+      "tool_call": true,
+      "release_date": "2025-08-05",
+      "last_updated": "2025-08-05",
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "open_weights": true,
+      "limit": {
+        "context": 131072,
+        "output": 32768
+      },
+      "display_name": "gpt-oss-20b"
+    },
+    {
+      "id": "gpt-image-1.5",
+      "name": "gpt-image-1.5",
+      "display_name": "gpt-image-1.5",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 5,
+        "output": 10,
+        "cache_read": 5
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "gpt-image-1",
+      "name": "gpt-image-1",
+      "display_name": "gpt-image-1",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 5,
+        "output": 40,
+        "cache_read": 5
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "gpt-image-1-mini",
+      "name": "gpt-image-1-mini",
+      "display_name": "gpt-image-1-mini",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 5,
+        "output": 40,
+        "cache_read": 5
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "gpt-4o-image",
+      "name": "gpt-4o-image",
+      "display_name": "gpt-4o-image",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 3,
+        "output": 3,
+        "cache_read": 0
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "dall-e-3",
+      "name": "dall-e-3",
+      "display_name": "dall-e-3",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 40,
+        "output": 40
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "dall-e-2",
+      "name": "dall-e-2",
+      "display_name": "dall-e-2",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 16,
+        "output": 16
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    }
+  ],
+  "google": [
+    {
+      "id": "gemini-3-pro-image-preview",
+      "name": "gemini-3-pro-image-preview",
+      "display_name": "gemini-3-pro-image-preview",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 12,
+        "cache_read": 2
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "gemini-2.5-flash-image",
+      "name": "gemini-2.5-flash-image",
+      "display_name": "gemini-2.5-flash-image",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "image",
+          "text"
+        ]
+      },
+      "cost": {
+        "input": 0.3,
+        "output": 2.499,
+        "cache_read": 0.3
+      },
+      "limit": {
+        "context": 32800,
+        "output": 32800
+      },
+      "vision": true
+    },
+    {
+      "id": "imagen-4.0",
+      "name": "imagen-4.0",
+      "display_name": "imagen-4.0",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 2,
+        "cache_read": 0
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "imagen-4.0-fast-generate-001",
+      "name": "imagen-4.0-fast-generate-001",
+      "display_name": "imagen-4.0-fast-generate-001",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 2
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "imagen-4.0-fast-generate-preview-06-06",
+      "name": "imagen-4.0-fast-generate-preview-06-06",
+      "display_name": "imagen-4.0-fast-generate-preview-06-06",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 2
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "imagen-4.0-generate-001",
+      "name": "imagen-4.0-generate-001",
+      "display_name": "imagen-4.0-generate-001",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 2
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "imagen-4.0-ultra-generate-001",
+      "name": "imagen-4.0-ultra-generate-001",
+      "display_name": "imagen-4.0-ultra-generate-001",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 2
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "imagen-4.0-ultra",
+      "name": "imagen-4.0-ultra",
+      "display_name": "imagen-4.0-ultra",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 2,
+        "cache_read": 0
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "gemini-2.5-flash-image-preview",
+      "name": "gemini-2.5-flash-image-preview",
+      "display_name": "gemini-2.5-flash-image-preview",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "image",
+          "text"
+        ]
+      },
+      "cost": {
+        "input": 0.3,
+        "output": 1.2,
+        "cache_read": 0.3
+      },
+      "limit": {
+        "context": 32800,
+        "output": 32800
+      },
+      "vision": true
+    },
+    {
+      "id": "imagen-4.0-ultra-generate-exp-05-20",
+      "name": "imagen-4.0-ultra-generate-exp-05-20",
+      "display_name": "imagen-4.0-ultra-generate-exp-05-20",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 2,
+        "cache_read": 0
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "imagen-3.0-generate-002",
+      "name": "imagen-3.0-generate-002",
+      "display_name": "imagen-3.0-generate-002",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 2,
+        "cache_read": 0
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "imagen-4.0-generate-preview-05-20",
+      "name": "imagen-4.0-generate-preview-05-20",
+      "display_name": "imagen-4.0-generate-preview-05-20",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 2,
+        "cache_read": 0
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    }
+  ],
+  "bytedance": [
+    {
+      "id": "doubao-seedream-4-5",
+      "name": "doubao-seedream-4-5",
+      "display_name": "doubao-seedream-4-5",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 0,
+        "cache_read": 0
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "doubao-seedream-4-0",
+      "name": "doubao-seedream-4-0",
+      "display_name": "doubao-seedream-4-0",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 0,
+        "cache_read": 0
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    }
+  ],
+  "alibaba": [
+    {
+      "id": "qwen-image",
+      "name": "qwen-image",
+      "display_name": "qwen-image",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 0,
+        "cache_read": 0
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "qwen-image-edit",
+      "name": "qwen-image-edit",
+      "display_name": "qwen-image-edit",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 0,
+        "cache_read": 0
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    },
+    {
+      "id": "qwen-image-plus",
+      "name": "qwen-image-plus",
+      "display_name": "qwen-image-plus",
+      "type": "image-generation",
+      "reasoning": {
+        "supported": false
+      },
+      "tool_call": false,
+      "modalities": {
+        "input": [
+          "text",
+          "image"
+        ]
+      },
+      "cost": {
+        "input": 2,
+        "output": 0,
+        "cache_read": 0
+      },
+      "limit": {
+        "context": 8192,
+        "output": 8192
+      },
+      "vision": true
+    }
+  ]
+}

@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toc } from '@lobehub/icons';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, RefreshCwIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { formatNumber } from '@/utils/format-number';
@@ -21,7 +21,7 @@ import { AutoCompleteSelect } from '@/components/auto-complete-select';
 import { useModels } from '../context/models-context';
 import { DEVELOPER_IDS, DEVELOPER_ICONS } from '../data/constants';
 import { useCreateModel, useUpdateModel } from '../data/models';
-import { useDevelopersData } from '../data/providers';
+import { useDevelopersData, useRefreshProvidersData } from '../data/providers';
 import { type Provider, type ProviderModel, resolveVision } from '../data/providers.schema';
 import { CreateModelInput, createModelInputSchema, UpdateModelInput, ModelCard, ModelType, modelTypeSchema, updateModelInputSchema } from '../data/schema';
 
@@ -34,7 +34,8 @@ export function ModelsActionDialog() {
   const { open, setOpen, currentRow } = useModels();
   const createModel = useCreateModel();
   const updateModel = useUpdateModel();
-  const { data: developersData } = useDevelopersData();
+  const { data: developersData, isFetching: isDevelopersDataFetching } = useDevelopersData();
+  const refreshProvidersData = useRefreshProvidersData();
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [developerSearchValue, setDeveloperSearchValue] = useState<string>('');
   const [modelIdInput, setModelIdInput] = useState<string>('');
@@ -269,7 +270,20 @@ export function ModelsActionDialog() {
                     name='developer'
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t('models.fields.developer')}</FormLabel>
+                        <div className='flex items-center justify-between'>
+                          <FormLabel>{t('models.fields.developer')}</FormLabel>
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='icon'
+                            className='h-5 w-5'
+                            onClick={refreshProvidersData}
+                            disabled={isDevelopersDataFetching}
+                            title={t('models.actions.refreshDevelopers')}
+                          >
+                            <RefreshCwIcon className={cn('h-3 w-3', isDevelopersDataFetching && 'animate-spin')} />
+                          </Button>
+                        </div>
                         <FormControl>
                           <AutoComplete
                             selectedValue={selectedProvider}

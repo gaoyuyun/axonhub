@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconRefresh } from '@tabler/icons-react';
 import { toc } from '@lobehub/icons';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -12,7 +12,7 @@ import { AutoCompleteSelect } from '@/components/auto-complete-select';
 import { useModels } from '../context/models-context';
 import { DEVELOPER_IDS, DEVELOPER_ICONS } from '../data/constants';
 import { useBulkCreateModels } from '../data/models';
-import { useDevelopersData } from '../data/providers';
+import { useDevelopersData, useRefreshProvidersData } from '../data/providers';
 import { type Provider, type ProviderModel, resolveVision } from '../data/providers.schema';
 import { CreateModelInput, ModelCard, ModelType, modelTypeSchema } from '../data/schema';
 
@@ -50,7 +50,8 @@ export function ModelsBatchCreateDialog() {
   const { t } = useTranslation();
   const { open, setOpen } = useModels();
   const bulkCreateModels = useBulkCreateModels();
-  const { data: developersData } = useDevelopersData();
+  const { data: developersData, isFetching: isDevelopersDataFetching } = useDevelopersData();
+  const refreshProvidersData = useRefreshProvidersData();
   const [rows, setRows] = useState<ModelRow[]>([]);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [dialogContent, setDialogContent] = useState<HTMLDivElement | null>(null);
@@ -327,7 +328,20 @@ export function ModelsBatchCreateDialog() {
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent ref={setDialogContent} className='flex flex-col overflow-hidden sm:max-w-4xl' style={{ height: '600px' }}>
         <DialogHeader className='flex-shrink-0 text-left'>
-          <DialogTitle>{t('models.dialogs.batchCreate.title')}</DialogTitle>
+          <div className='flex items-center justify-between'>
+            <DialogTitle>{t('models.dialogs.batchCreate.title')}</DialogTitle>
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon'
+              className='h-6 w-6'
+              onClick={refreshProvidersData}
+              disabled={isDevelopersDataFetching}
+              title={t('models.actions.refreshDevelopers')}
+            >
+              <IconRefresh className={`h-4 w-4 ${isDevelopersDataFetching ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
           <DialogDescription>{t('models.dialogs.batchCreate.description')}</DialogDescription>
         </DialogHeader>
 
