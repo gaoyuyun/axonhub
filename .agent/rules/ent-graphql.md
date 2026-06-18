@@ -11,6 +11,7 @@ globs: "internal/ent/schema/**/*.go, internal/server/gql/**/*.go, internal/serve
 2. If you add or update a struct used by GraphQL objects, update the mapping in `gqlgen.yml`.
 3. Use `enttest.NewEntClient(t, \"sqlite3\", \"file:ent?mode=memory&_fk=0\")` for Ent tests.
 4. Do not edit `ent.graphql` directly; add GraphQL schema in the appropriate non-generated schema file.
+5. After merge or rebase, if Ent schema or externally visible GraphQL fields changed, rerun `make generate` instead of manually resolving generated-code mapping drift.
 
 ## GraphQL
 
@@ -70,3 +71,4 @@ globs: "internal/ent/schema/**/*.go, internal/server/gql/**/*.go, internal/serve
 
 1. Do not write manual migration SQL files for normal schema changes.
 2. Update `internal/ent/schema/*.go`, run `make generate`, and let Ent-managed migrations handle the rest.
+3. Pure data migrations or internal database-only changes do not require gqlgen regeneration unless they alter Ent schema or GraphQL-visible fields.

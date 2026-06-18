@@ -50,6 +50,17 @@ AxonHub is an all-in-one AI development platform that serves as a unified API ga
 - `llm/` is an independent module. Always run Go commands from the `llm/` directory (e.g., `cd llm && go test ./...`).
 - Running `go test ./llm/...` from repo root will fail with module boundary errors.
 
+## Fork Stable Maintenance
+
+- `fork/stable` is the local stable fork branch. Keep it as a small, readable patch stack on top of the selected upstream release branch.
+- When `upstream/release/v0.9.x` receives new commits, rebase `fork/stable` onto the updated `upstream/release/v0.9.x` and resolve conflicts by preserving only the local fork features that are still needed.
+- If upstream creates a newer stable release branch, such as `upstream/release/v1.0.0`, treat that branch as the new base only after explicitly choosing to migrate. Rebase `fork/stable` onto the new upstream release branch, then re-evaluate each local patch and drop patches already fixed upstream.
+- Do not use `upstream/unstable` as the base for `fork/stable` unless explicitly requested.
+- Fetch upstream with `git fetch upstream --no-tags`; release tags are maintained locally and must not be imported automatically from upstream.
+- Keep only the fork-owned `.github/workflows/ghcr-publish.yml` workflow. After every upstream rebase or merge, remove all other files under `.github/workflows/` and fold those deletions into the `整理 fork 的 GitHub Actions 发布流程` commit before pushing.
+- Keep fork commits topic-based and clearly named so future rebases can cherry-pick, reorder, squash, or drop individual local changes.
+- After any rebase or merge, if Ent schema or externally visible GraphQL fields changed, run `make generate` and include generated output in the relevant commit. Root Go tests run from the repository root; `llm/` tests run from the `llm/` directory.
+
 ## Frontend Structure
 
 - `frontend/src/routes/` — TanStack Router file-based routing
