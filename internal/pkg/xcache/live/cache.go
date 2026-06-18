@@ -336,8 +336,27 @@ func (c *Cache[T]) worker() {
 
 		case <-debounceCh:
 			log.Debug(context.Background(), "live cache async refresh starting", log.String("name", c.name))
-			c.doRefresh("async")
+			c.doForceRefresh()
 		}
+	}
+}
+
+// doForceRefresh performs a forced cache refresh, bypassing the lastUpdate time comparison.
+// Used for async reloads triggered by ForceRefresh events to ensure changes are always picked up.
+func (c *Cache[T]) doForceRefresh() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error(context.Background(), "live cache doForceRefresh panicked",
+				log.String("name", c.name),
+				log.Any("panic", r))
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), c.refreshTimeout)
+	defer cancel()
+
+	if err := c.loadInternal(ctx, true); err != nil {
+		log.Error(ctx, "live cache force refresh failed", log.String("name", c.name), log.Cause(err))
 	}
 }
 

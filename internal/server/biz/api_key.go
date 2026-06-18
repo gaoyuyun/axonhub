@@ -863,6 +863,72 @@ func (s *APIKeyService) BulkArchiveAPIKeys(ctx context.Context, ids []int) error
 	return s.bulkUpdateAPIKeyStatus(ctx, ids, apikey.StatusArchived, "archive")
 }
 
+// DeleteAPIKey soft-deletes an API key by its ID.
+func (s *APIKeyService) DeleteAPIKey(ctx context.Context, id int) error {
+	client := s.entFromContext(ctx)
+
+	existing, err := client.APIKey.Get(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get API key: %w", err)
+	}
+	if existing.Type == apikey.TypeNoauth {
+		return fmt.Errorf("noauth type API key cannot be deleted")
+	}
+	if existing.Type == apikey.TypePersonal {
+		user, ok := contexts.GetUser(ctx)
+		if !ok {
+			return fmt.Errorf("user not found in context")
+		}
+		if existing.UserID != user.ID {
+			return fmt.Errorf("personal API key can only be deleted by its creator")
+		}
+	}
+
+	if err := client.APIKey.DeleteOneID(id).Exec(ctx); err != nil {
+		return fmt.Errorf("failed to delete API key: %w", err)
+	}
+
+	s.invalidateAPIKeyCaches(ctx, existing.Key)
+	return nil
+}
+
+// BulkDeleteAPIKeys soft-deletes multiple API keys by their IDs.
+func (s *APIKeyService) BulkDeleteAPIKeys(ctx context.Context, ids []int) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	client := s.entFromContext(ctx)
+	apiKeys, err := client.APIKey.Query().
+		Where(apikey.IDIn(ids...)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to query API keys: %w", err)
+	}
+	if len(apiKeys) != len(ids) {
+		return fmt.Errorf("expected to find %d API keys, but found %d", len(ids), len(apiKeys))
+	}
+
+	user, hasUser := contexts.GetUser(ctx)
+	for _, apiKey := range apiKeys {
+		if apiKey.Type == apikey.TypeNoauth {
+			return fmt.Errorf("noauth type API key cannot be bulk deleted")
+		}
+		if apiKey.Type == apikey.TypePersonal && (!hasUser || apiKey.UserID != user.ID) {
+			return fmt.Errorf("personal API key %q can only be deleted by its creator", apiKey.Name)
+		}
+	}
+
+	if _, err := client.APIKey.Delete().
+		Where(apikey.IDIn(ids...)).
+		Exec(ctx); err != nil {
+		return fmt.Errorf("failed to delete API keys: %w", err)
+	}
+
+	s.invalidateAPIKeyCaches(ctx, lo.Map(apiKeys, func(apiKey *ent.APIKey, _ int) string { return apiKey.Key })...)
+	return nil
+}
+
 // RotateAPIKey rotates an API key by generating a new key value while preserving all other properties.
 // This is useful when a key is compromised or when an employee leaves, without losing usage statistics.
 func (s *APIKeyService) RotateAPIKey(ctx context.Context, id int) (*ent.APIKey, error) {
