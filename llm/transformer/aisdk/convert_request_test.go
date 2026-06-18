@@ -162,11 +162,11 @@ func TestConvertToLLMRequestComprehensive_UserMessage(t *testing.T) {
 		assert.Equal(t, "user", result.Messages[0].Role)
 		require.Len(t, result.Messages[0].Content.MultipleContent, 2)
 
-		// Check image part
-		imagePart := result.Messages[0].Content.MultipleContent[0]
-		assert.Equal(t, "image_url", imagePart.Type)
-		require.NotNil(t, imagePart.ImageURL)
-		assert.Equal(t, "https://example.com/image.jpg", imagePart.ImageURL.URL)
+		filePart := result.Messages[0].Content.MultipleContent[0]
+		assert.Equal(t, "file", filePart.Type)
+		require.NotNil(t, filePart.File)
+		assert.Equal(t, "https://example.com/image.jpg", filePart.File.URL)
+		assert.Equal(t, "image/jpeg", filePart.File.MIMEType)
 
 		// Check text part
 		textPart := result.Messages[0].Content.MultipleContent[1]
@@ -199,10 +199,11 @@ func TestConvertToLLMRequestComprehensive_UserMessage(t *testing.T) {
 		assert.Equal(t, "user", result.Messages[0].Role)
 		require.Len(t, result.Messages[0].Content.MultipleContent, 1)
 
-		imagePart := result.Messages[0].Content.MultipleContent[0]
-		assert.Equal(t, "image_url", imagePart.Type)
-		require.NotNil(t, imagePart.ImageURL)
-		assert.Equal(t, "https://example.com/image.jpg", imagePart.ImageURL.URL)
+		filePart := result.Messages[0].Content.MultipleContent[0]
+		assert.Equal(t, "file", filePart.Type)
+		require.NotNil(t, filePart.File)
+		assert.Equal(t, "https://example.com/image.jpg", filePart.File.URL)
+		assert.Equal(t, "image.jpg", filePart.File.Filename)
 	})
 
 	t.Run("user message from content string", func(t *testing.T) {
@@ -305,10 +306,11 @@ func TestConvertToLLMRequestComprehensive_AssistantMessage(t *testing.T) {
 		assert.Equal(t, "assistant", result.Messages[0].Role)
 		require.Len(t, result.Messages[0].Content.MultipleContent, 1)
 
-		imagePart := result.Messages[0].Content.MultipleContent[0]
-		assert.Equal(t, "image_url", imagePart.Type)
-		require.NotNil(t, imagePart.ImageURL)
-		assert.Equal(t, "data:image/png;base64,dGVzdA==", imagePart.ImageURL.URL)
+		filePart := result.Messages[0].Content.MultipleContent[0]
+		assert.Equal(t, "file", filePart.Type)
+		require.NotNil(t, filePart.File)
+		assert.Equal(t, "data:image/png;base64,dGVzdA==", filePart.File.URL)
+		assert.Equal(t, "image/png", filePart.File.MIMEType)
 	})
 
 	t.Run("assistant message from content string", func(t *testing.T) {

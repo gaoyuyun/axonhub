@@ -234,7 +234,127 @@ func TestPromptMatcher_MatchConditions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := matcher.MatchConditions(tt.conditions, tt.model, tt.apiKeyID)
+			result := matcher.MatchConditions(tt.conditions, tt.model, tt.apiKeyID, 0)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+
+	// Channel condition tests need a separate loop because they use channelID
+	channelTests := []struct {
+		name       string
+		conditions []objects.PromptActivationConditionComposite
+		model      string
+		apiKeyID   int
+		channelID  int
+		expected   bool
+	}{
+		{
+			name: "channel_id match",
+			conditions: []objects.PromptActivationConditionComposite{
+				{
+					Conditions: []objects.PromptActivationCondition{
+						{Type: objects.PromptActivationConditionTypeChannelID, ChannelID: lo.ToPtr(10)},
+					},
+				},
+			},
+			model:     "gpt-4",
+			channelID: 10,
+			expected:  true,
+		},
+		{
+			name: "channel_id mismatch",
+			conditions: []objects.PromptActivationConditionComposite{
+				{
+					Conditions: []objects.PromptActivationCondition{
+						{Type: objects.PromptActivationConditionTypeChannelID, ChannelID: lo.ToPtr(10)},
+					},
+				},
+			},
+			model:     "gpt-4",
+			channelID: 20,
+			expected:  false,
+		},
+		{
+			name: "channel_id with zero channelID should not match",
+			conditions: []objects.PromptActivationConditionComposite{
+				{
+					Conditions: []objects.PromptActivationCondition{
+						{Type: objects.PromptActivationConditionTypeChannelID, ChannelID: lo.ToPtr(10)},
+					},
+				},
+			},
+			model:     "gpt-4",
+			channelID: 0,
+			expected:  false,
+		},
+		{
+			name: "nil channel_id should not match",
+			conditions: []objects.PromptActivationConditionComposite{
+				{
+					Conditions: []objects.PromptActivationCondition{
+						{Type: objects.PromptActivationConditionTypeChannelID, ChannelID: nil},
+					},
+				},
+			},
+			model:     "gpt-4",
+			channelID: 10,
+			expected:  false,
+		},
+		{
+			name: "channel_id AND model_id - both match",
+			conditions: []objects.PromptActivationConditionComposite{
+				{
+					Conditions: []objects.PromptActivationCondition{
+						{Type: objects.PromptActivationConditionTypeChannelID, ChannelID: lo.ToPtr(10)},
+					},
+				},
+				{
+					Conditions: []objects.PromptActivationCondition{
+						{Type: objects.PromptActivationConditionTypeModelID, ModelID: lo.ToPtr("gpt-4")},
+					},
+				},
+			},
+			model:     "gpt-4",
+			channelID: 10,
+			expected:  true,
+		},
+		{
+			name: "channel_id AND model_id - channel matches, model does not",
+			conditions: []objects.PromptActivationConditionComposite{
+				{
+					Conditions: []objects.PromptActivationCondition{
+						{Type: objects.PromptActivationConditionTypeChannelID, ChannelID: lo.ToPtr(10)},
+					},
+				},
+				{
+					Conditions: []objects.PromptActivationCondition{
+						{Type: objects.PromptActivationConditionTypeModelID, ModelID: lo.ToPtr("claude-3")},
+					},
+				},
+			},
+			model:     "gpt-4",
+			channelID: 10,
+			expected:  false,
+		},
+		{
+			name: "channel_id OR model_id in same group - channel matches",
+			conditions: []objects.PromptActivationConditionComposite{
+				{
+					Conditions: []objects.PromptActivationCondition{
+						{Type: objects.PromptActivationConditionTypeChannelID, ChannelID: lo.ToPtr(10)},
+						{Type: objects.PromptActivationConditionTypeModelID, ModelID: lo.ToPtr("claude-3")},
+					},
+				},
+			},
+			model:     "gpt-4",
+			channelID: 10,
+			expected:  true,
+		},
+	}
+
+	for _, tt := range channelTests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matcher.MatchConditions(tt.conditions, tt.model, tt.apiKeyID, tt.channelID)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -318,7 +438,7 @@ func TestPromptMatcher_MatchPrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := matcher.MatchPrompt(tt.prompt, tt.model, tt.apiKeyID)
+			result := matcher.MatchPrompt(tt.prompt, tt.model, tt.apiKeyID, 0)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -370,21 +490,21 @@ func TestPromptMatcher_FilterMatchingPrompts(t *testing.T) {
 	}
 
 	t.Run("filter for gpt-4", func(t *testing.T) {
-		result := matcher.FilterMatchingPrompts(prompts, "gpt-4", 0)
+		result := matcher.FilterMatchingPrompts(prompts, "gpt-4", 0, 0)
 		require.Len(t, result, 2)
 		assert.Equal(t, 1, result[0].ID)
 		assert.Equal(t, 2, result[1].ID)
 	})
 
 	t.Run("filter for claude-3-opus", func(t *testing.T) {
-		result := matcher.FilterMatchingPrompts(prompts, "claude-3-opus", 0)
+		result := matcher.FilterMatchingPrompts(prompts, "claude-3-opus", 0, 0)
 		require.Len(t, result, 2)
 		assert.Equal(t, 1, result[0].ID)
 		assert.Equal(t, 3, result[1].ID)
 	})
 
 	t.Run("filter for unknown model", func(t *testing.T) {
-		result := matcher.FilterMatchingPrompts(prompts, "unknown-model", 0)
+		result := matcher.FilterMatchingPrompts(prompts, "unknown-model", 0, 0)
 		require.Len(t, result, 1)
 		assert.Equal(t, 1, result[0].ID)
 	})
@@ -531,4 +651,160 @@ func TestPromptMatcher_ApplyPrompts(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHasChannelConditions(t *testing.T) {
+	tests := []struct {
+		name     string
+		prompt   *ent.Prompt
+		expected bool
+	}{
+		{
+			name:     "nil prompt",
+			prompt:   nil,
+			expected: false,
+		},
+		{
+			name: "no conditions",
+			prompt: &ent.Prompt{
+				Settings: objects.PromptSettings{
+					Conditions: nil,
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "model_id only",
+			prompt: &ent.Prompt{
+				Settings: objects.PromptSettings{
+					Conditions: []objects.PromptActivationConditionComposite{
+						{
+							Conditions: []objects.PromptActivationCondition{
+								{Type: objects.PromptActivationConditionTypeModelID, ModelID: lo.ToPtr("gpt-4")},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "has channel condition",
+			prompt: &ent.Prompt{
+				Settings: objects.PromptSettings{
+					Conditions: []objects.PromptActivationConditionComposite{
+						{
+							Conditions: []objects.PromptActivationCondition{
+								{Type: objects.PromptActivationConditionTypeChannelID, ChannelID: lo.ToPtr(10)},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "channel condition mixed with model condition",
+			prompt: &ent.Prompt{
+				Settings: objects.PromptSettings{
+					Conditions: []objects.PromptActivationConditionComposite{
+						{
+							Conditions: []objects.PromptActivationCondition{
+								{Type: objects.PromptActivationConditionTypeModelID, ModelID: lo.ToPtr("gpt-4")},
+							},
+						},
+						{
+							Conditions: []objects.PromptActivationCondition{
+								{Type: objects.PromptActivationConditionTypeChannelID, ChannelID: lo.ToPtr(10)},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := HasChannelConditions(tt.prompt)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestPromptMatcher_FilterMatchingPrompts_WithChannel(t *testing.T) {
+	matcher := NewPromptMatcher()
+
+	prompts := []*ent.Prompt{
+		{
+			ID:      1,
+			Role:    "system",
+			Content: "No conditions",
+			Settings: objects.PromptSettings{
+				Action: objects.PromptAction{Type: objects.PromptActionTypePrepend},
+			},
+		},
+		{
+			ID:      2,
+			Role:    "system",
+			Content: "Channel 10 only",
+			Settings: objects.PromptSettings{
+				Action: objects.PromptAction{Type: objects.PromptActionTypePrepend},
+				Conditions: []objects.PromptActivationConditionComposite{
+					{
+						Conditions: []objects.PromptActivationCondition{
+							{Type: objects.PromptActivationConditionTypeChannelID, ChannelID: lo.ToPtr(10)},
+						},
+					},
+				},
+			},
+		},
+		{
+			ID:      3,
+			Role:    "system",
+			Content: "Channel 20 + model gpt-4",
+			Settings: objects.PromptSettings{
+				Action: objects.PromptAction{Type: objects.PromptActionTypePrepend},
+				Conditions: []objects.PromptActivationConditionComposite{
+					{
+						Conditions: []objects.PromptActivationCondition{
+							{Type: objects.PromptActivationConditionTypeChannelID, ChannelID: lo.ToPtr(20)},
+						},
+					},
+					{
+						Conditions: []objects.PromptActivationCondition{
+							{Type: objects.PromptActivationConditionTypeModelID, ModelID: lo.ToPtr("gpt-4")},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	t.Run("channelID=0 should not match channel conditions", func(t *testing.T) {
+		result := matcher.FilterMatchingPrompts(prompts, "gpt-4", 0, 0)
+		require.Len(t, result, 1)
+		assert.Equal(t, 1, result[0].ID)
+	})
+
+	t.Run("channelID=10 matches channel 10 prompt", func(t *testing.T) {
+		result := matcher.FilterMatchingPrompts(prompts, "gpt-4", 0, 10)
+		require.Len(t, result, 2)
+		assert.Equal(t, 1, result[0].ID)
+		assert.Equal(t, 2, result[1].ID)
+	})
+
+	t.Run("channelID=20 with gpt-4 matches channel 20 + model prompt", func(t *testing.T) {
+		result := matcher.FilterMatchingPrompts(prompts, "gpt-4", 0, 20)
+		require.Len(t, result, 2)
+		assert.Equal(t, 1, result[0].ID)
+		assert.Equal(t, 3, result[1].ID)
+	})
+
+	t.Run("channelID=20 with claude-3 does not match channel+model prompt", func(t *testing.T) {
+		result := matcher.FilterMatchingPrompts(prompts, "claude-3", 0, 20)
+		require.Len(t, result, 1)
+		assert.Equal(t, 1, result[0].ID)
+	})
 }

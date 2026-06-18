@@ -117,6 +117,16 @@ func (svc *PromptService) ValidatePromptSettings(settings objects.PromptSettings
 					return fmt.Errorf("api_key_id must be greater than 0")
 				}
 			}
+
+			if condition.Type == objects.PromptActivationConditionTypeChannelID {
+				if condition.ChannelID == nil {
+					return fmt.Errorf("channel_id is required when type is channel")
+				}
+
+				if *condition.ChannelID <= 0 {
+					return fmt.Errorf("channel_id must be greater than 0")
+				}
+			}
 		}
 	}
 

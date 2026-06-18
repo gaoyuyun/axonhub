@@ -65,9 +65,10 @@ func TestConvertToLLMRequest_UserMessage_TextAndFile(t *testing.T) {
 	require.Len(t, m.Content.MultipleContent, 2)
 
 	p0 := m.Content.MultipleContent[0]
-	require.Equal(t, "image_url", p0.Type)
-	require.NotNil(t, p0.ImageURL)
-	require.Equal(t, "https://example.com/image.jpg", p0.ImageURL.URL)
+	require.Equal(t, "file", p0.Type)
+	require.NotNil(t, p0.File)
+	require.Equal(t, "https://example.com/image.jpg", p0.File.URL)
+	require.Equal(t, "image/jpeg", p0.File.MIMEType)
 
 	p1 := m.Content.MultipleContent[1]
 	require.Equal(t, "text", p1.Type)

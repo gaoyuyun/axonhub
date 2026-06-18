@@ -400,6 +400,58 @@ func TestProviderExtensions_NotSerializedWithLLMRequest(t *testing.T) {
 	require.NotContains(t, string(data), "provider_extensions")
 }
 
+func TestResponsesFileInputRoundTrip(t *testing.T) {
+	inbound := NewInboundTransformer()
+	inboundReq := &httpclient.Request{
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body: []byte(`{
+			"model": "gpt-4.1",
+			"input": [{
+				"role": "user",
+				"content": [
+					{"type": "input_text", "text": "Summarize this document."},
+					{
+						"type": "input_file",
+						"filename": "paper.pdf",
+						"file_data": "data:application/pdf;base64,JVBERi0xLjQK",
+						"detail": "high"
+					}
+				]
+			}]
+		}`),
+	}
+
+	llmReq, err := inbound.TransformRequest(context.Background(), inboundReq)
+	require.NoError(t, err)
+
+	outbound, err := NewOutboundTransformer("https://api.openai.com", "test-api-key")
+	require.NoError(t, err)
+
+	httpReq, err := outbound.TransformRequest(context.Background(), llmReq)
+	require.NoError(t, err)
+
+	var payload map[string]any
+	err = json.Unmarshal(httpReq.Body, &payload)
+	require.NoError(t, err)
+
+	input, ok := payload["input"].([]any)
+	require.True(t, ok)
+	require.Len(t, input, 1)
+	message, ok := input[0].(map[string]any)
+	require.True(t, ok)
+	content, ok := message["content"].([]any)
+	require.True(t, ok)
+	require.Len(t, content, 2)
+	file, ok := content[1].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "input_file", file["type"])
+	require.Equal(t, "paper.pdf", file["filename"])
+	require.Equal(t, "data:application/pdf;base64,JVBERi0xLjQK", file["file_data"])
+	require.Equal(t, "high", file["detail"])
+	require.NotContains(t, file, "mime_type")
+	require.NotContains(t, file, "file_url")
+}
+
 func TestOutboundTransformer_TransformRequest(t *testing.T) {
 	transformer, _ := NewOutboundTransformer("https://api.openai.com", "test-api-key")
 

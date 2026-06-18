@@ -147,6 +147,64 @@ func TestInboundTransformer_TransformRequest(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "request with document content",
+			httpReq: &httpclient.Request{
+				Headers: http.Header{
+					"Content-Type": []string{"application/json"},
+				},
+				Body: []byte(`{
+					"model": "claude-3-sonnet-20240229",
+					"max_tokens": 1024,
+					"messages": [
+						{
+							"role": "user",
+							"content": [
+								{
+									"type": "text",
+									"text": "Summarize this PDF"
+								},
+								{
+									"type": "document",
+									"title": "report.pdf",
+									"source": {
+										"type": "base64",
+										"media_type": "application/pdf",
+										"data": "JVBERi0xLjQK"
+									}
+								}
+							]
+						}
+					]
+				}`),
+			},
+			expected: &llm.Request{
+				Model:     "claude-3-sonnet-20240229",
+				MaxTokens: func() *int64 { v := int64(1024); return &v }(),
+				Messages: []llm.Message{
+					{
+						Role: "user",
+						Content: llm.MessageContent{
+							MultipleContent: []llm.MessageContentPart{
+								{
+									Type: "text",
+									Text: func() *string { s := "Summarize this PDF"; return &s }(),
+								},
+								{
+									Type: "file",
+									File: &llm.File{
+										Filename: "report.pdf",
+										FileData: "JVBERi0xLjQK",
+										MIMEType: "application/pdf",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
 			name: "request with temperature and stop sequences",
 			httpReq: &httpclient.Request{
 				Headers: http.Header{
@@ -479,6 +537,46 @@ func TestInboundTransformer_TransformRequest(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInboundTransformer_OfficialFileSources(t *testing.T) {
+	transformer := NewInboundTransformer()
+	httpReq := &httpclient.Request{
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body: []byte(`{
+			"model": "claude-opus-4-8",
+			"max_tokens": 1024,
+			"messages": [{
+				"role": "user",
+				"content": [
+					{"type": "document", "source": {"type": "text", "media_type": "text/plain", "data": "hello"}},
+					{"type": "document", "source": {"type": "file", "file_id": "file_doc"}},
+					{"type": "image", "source": {"type": "file", "file_id": "file_image"}}
+				]
+			}]
+		}`),
+	}
+
+	result, err := transformer.TransformRequest(t.Context(), httpReq)
+	require.NoError(t, err)
+	require.Len(t, result.Messages, 1)
+	require.Len(t, result.Messages[0].Content.MultipleContent, 3)
+
+	textFile := result.Messages[0].Content.MultipleContent[0].File
+	require.NotNil(t, textFile)
+	require.Equal(t, "document", textFile.Kind)
+	require.Equal(t, "text/plain", textFile.MIMEType)
+	require.Equal(t, "aGVsbG8=", textFile.FileData)
+
+	documentFile := result.Messages[0].Content.MultipleContent[1].File
+	require.NotNil(t, documentFile)
+	require.Equal(t, "document", documentFile.Kind)
+	require.Equal(t, "file_doc", documentFile.FileID)
+
+	imageFile := result.Messages[0].Content.MultipleContent[2].File
+	require.NotNil(t, imageFile)
+	require.Equal(t, "image", imageFile.Kind)
+	require.Equal(t, "file_image", imageFile.FileID)
 }
 
 func TestInboundTransformer_TransformResponse_RemovesEmptyReadPages(t *testing.T) {

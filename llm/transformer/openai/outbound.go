@@ -319,6 +319,18 @@ func (t *OutboundTransformer) TransformStreamChunk(
 	ctx context.Context,
 	event *httpclient.StreamEvent,
 ) (*llm.Response, error) {
+	if event == nil {
+		return nil, nil
+	}
+
+	if len(event.Data) == 0 {
+		if streamErr := parseStreamErrorEvent(event); streamErr != nil {
+			return nil, streamErr
+		}
+
+		return nil, nil
+	}
+
 	if bytes.HasPrefix(event.Data, []byte("[DONE]")) {
 		return llm.DoneResponse, nil
 	}

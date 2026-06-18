@@ -95,6 +95,34 @@ func TestConvertDocumentURLToGeminiPart(t *testing.T) {
 	}
 }
 
+func TestConvertFileToGeminiPart(t *testing.T) {
+	t.Run("pdf file data becomes inline document", func(t *testing.T) {
+		result := convertFileToGeminiPart(&llm.File{
+			Filename: "report.pdf",
+			FileData: "JVBERi0xLjQK",
+			MIMEType: "application/pdf",
+		})
+
+		require.NotNil(t, result)
+		require.NotNil(t, result.InlineData)
+		assert.Equal(t, "application/pdf", result.InlineData.MIMEType)
+		assert.Equal(t, "JVBERi0xLjQK", result.InlineData.Data)
+	})
+
+	t.Run("zip url becomes file data", func(t *testing.T) {
+		result := convertFileToGeminiPart(&llm.File{
+			Filename: "bundle.zip",
+			URL:      "https://example.com/bundle.zip",
+			MIMEType: "application/zip",
+		})
+
+		require.NotNil(t, result)
+		require.NotNil(t, result.FileData)
+		assert.Equal(t, "https://example.com/bundle.zip", result.FileData.FileURI)
+		assert.Equal(t, "application/zip", result.FileData.MIMEType)
+	})
+}
+
 func TestConvertAudioToGeminiPart(t *testing.T) {
 	tests := []struct {
 		name     string

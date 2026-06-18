@@ -524,6 +524,19 @@ func TestOutboundTransformer_TransformStreamChunk_StreamErrorEvent(t *testing.T)
 	assert.Equal(t, "2026031122524215033670187648af", respErr.Detail.RequestID)
 }
 
+func TestOutboundTransformer_TransformStreamChunk_EmptyKeepaliveEvent(t *testing.T) {
+	transformerInterface, err := NewOutboundTransformer("https://api.openai.com/v1", "test-key")
+	if err != nil {
+		t.Fatalf("Failed to create transformer: %v", err)
+	}
+
+	transformer := transformerInterface.(*OutboundTransformer)
+
+	resp, err := transformer.TransformStreamChunk(context.Background(), &httpclient.StreamEvent{})
+	assert.NoError(t, err)
+	assert.Nil(t, resp)
+}
+
 func TestOutboundTransformer_TransformStream_FiltersEmptyChoicesWithoutDroppingUsageChunk(t *testing.T) {
 	transformerInterface, err := NewOutboundTransformer("https://api.openai.com/v1", "test-key")
 	if err != nil {

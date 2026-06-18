@@ -346,12 +346,20 @@ func convertGeminiContentToLLMMessage(content *Content, previousContents []*Cont
 						Data:   part.InlineData.Data,
 					},
 				})
-			} else {
-				// Image type
+			} else if strings.HasPrefix(strings.ToLower(part.InlineData.MIMEType), "image/") {
 				textParts = append(textParts, llm.MessageContentPart{
 					Type: "image_url",
 					ImageURL: &llm.ImageURL{
 						URL: dataURL,
+					},
+				})
+			} else {
+				textParts = append(textParts, llm.MessageContentPart{
+					Type: "file",
+					File: &llm.File{
+						URL:      dataURL,
+						FileData: part.InlineData.Data,
+						MIMEType: part.InlineData.MIMEType,
 					},
 				})
 			}
@@ -382,12 +390,19 @@ func convertGeminiContentToLLMMessage(content *Content, previousContents []*Cont
 						Format: audioMIMETypeToFormat(mimeType),
 					},
 				})
-			} else {
-				// Image type
+			} else if strings.HasPrefix(strings.ToLower(mimeType), "image/") {
 				textParts = append(textParts, llm.MessageContentPart{
 					Type: "image_url",
 					ImageURL: &llm.ImageURL{
 						URL: part.FileData.FileURI,
+					},
+				})
+			} else {
+				textParts = append(textParts, llm.MessageContentPart{
+					Type: "file",
+					File: &llm.File{
+						URL:      part.FileData.FileURI,
+						MIMEType: mimeType,
 					},
 				})
 			}

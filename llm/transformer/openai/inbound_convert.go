@@ -234,6 +234,15 @@ func (p MessageContentPart) ToLLMPart() llm.MessageContentPart {
 		}
 	}
 
+	if p.File != nil {
+		part.File = &llm.File{
+			FileID:   p.File.FileID,
+			FileData: p.File.FileData,
+			Filename: p.File.Filename,
+			MIMEType: p.File.MIMEType,
+		}
+	}
+
 	if p.InputAudio != nil {
 		part.InputAudio = &llm.InputAudio{
 			Format: p.InputAudio.Format,

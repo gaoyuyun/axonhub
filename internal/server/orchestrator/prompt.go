@@ -48,24 +48,38 @@ func injectPrompts(inbound *PersistentInboundTransformer) pipeline.Middleware {
 			return llmRequest, nil
 		}
 
+		// Split prompts: those with channel conditions are deferred to outbound phase
+		var inboundPrompts []*ent.Prompt
+
+		for _, p := range enabledPrompts {
+			if biz.HasChannelConditions(p) {
+				inbound.state.ChannelPrompts = append(inbound.state.ChannelPrompts, p)
+			} else {
+				inboundPrompts = append(inboundPrompts, p)
+			}
+		}
+
 		var apiKeyID int
 		if apiKey, ok := contexts.GetAPIKey(ctx); ok {
 			apiKeyID = apiKey.ID
 		}
 
-		matchingPrompts := matcher.FilterMatchingPrompts(enabledPrompts, llmRequest.Model, apiKeyID)
+		// Inject non-channel prompts at inbound phase (channelID=0)
+		matchingPrompts := matcher.FilterMatchingPrompts(inboundPrompts, llmRequest.Model, apiKeyID, 0)
 		if len(matchingPrompts) == 0 {
-			log.Debug(ctx, "no matching prompts for model",
+			log.Debug(ctx, "no matching inbound prompts for model",
 				log.String("model", llmRequest.Model),
 				log.Int("enabled_count", len(enabledPrompts)),
+				log.Int("channel_prompts_deferred", len(inbound.state.ChannelPrompts)),
 			)
 
 			return llmRequest, nil
 		}
 
-		log.Debug(ctx, "injecting prompts",
+		log.Debug(ctx, "injecting inbound prompts",
 			log.String("model", llmRequest.Model),
 			log.Int("matching_count", len(matchingPrompts)),
+			log.Int("channel_prompts_deferred", len(inbound.state.ChannelPrompts)),
 		)
 
 		llmRequest = matcher.ApplyPrompts(llmRequest, matchingPrompts)

@@ -263,6 +263,7 @@ type MessageContentPart struct {
 	Text       *string     `json:"text,omitempty"`
 	ImageURL   *ImageURL   `json:"image_url,omitempty"`
 	VideoURL   *VideoURL   `json:"video_url,omitempty"`
+	File       *File       `json:"file,omitempty"`
 	InputAudio *InputAudio `json:"input_audio,omitempty"`
 }
 
@@ -275,6 +276,14 @@ type ImageURL struct {
 // VideoURL represents a video URL.
 type VideoURL struct {
 	URL string `json:"url"`
+}
+
+// File represents OpenAI-compatible file content.
+type File struct {
+	FileID   string `json:"file_id,omitempty"`
+	FileData string `json:"file_data,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	MIMEType string `json:"mime_type,omitempty"`
 }
 
 // InputAudio represents audio content.

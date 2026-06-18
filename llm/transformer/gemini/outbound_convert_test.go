@@ -242,6 +242,36 @@ func TestConvertLLMToGeminiRequest_Basic(t *testing.T) {
 			},
 		},
 		{
+			name: "request with generic file input",
+			input: &llm.Request{
+				Messages: []llm.Message{
+					{
+						Role: "user",
+						Content: llm.MessageContent{
+							MultipleContent: []llm.MessageContentPart{
+								{
+									Type: "file",
+									File: &llm.File{
+										Filename: "report.pdf",
+										FileData: "JVBERi0xLjQK",
+										MIMEType: "application/pdf",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, result *GenerateContentRequest) {
+				t.Helper()
+				require.Len(t, result.Contents, 1)
+				require.Len(t, result.Contents[0].Parts, 1)
+				require.NotNil(t, result.Contents[0].Parts[0].InlineData)
+				require.Equal(t, "application/pdf", result.Contents[0].Parts[0].InlineData.MIMEType)
+				require.Equal(t, "JVBERi0xLjQK", result.Contents[0].Parts[0].InlineData.Data)
+			},
+		},
+		{
 			name: "request with reasoning effort low",
 			input: &llm.Request{
 				ReasoningEffort: "low",

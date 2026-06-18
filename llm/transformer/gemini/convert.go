@@ -191,6 +191,34 @@ func convertAudioToGeminiPart(audio *llm.InputAudio) *Part {
 	}
 }
 
+func convertFileToGeminiPart(file *llm.File) *Part {
+	if file == nil {
+		return nil
+	}
+
+	mimeType := file.ResolvedMIMEType()
+
+	if inlineData := file.InlineData(); inlineData != "" {
+		return &Part{
+			InlineData: &Blob{
+				MIMEType: mimeType,
+				Data:     inlineData,
+			},
+		}
+	}
+
+	if file.URL != "" {
+		return &Part{
+			FileData: &FileData{
+				FileURI:  file.URL,
+				MIMEType: mimeType,
+			},
+		}
+	}
+
+	return nil
+}
+
 // convertDocumentURLToGeminiPart converts a DocumentURL to a Gemini Part.
 // Handles both data URLs and regular URLs for documents (PDF, Word, etc.)
 func convertDocumentURLToGeminiPart(doc *llm.DocumentURL) *Part {

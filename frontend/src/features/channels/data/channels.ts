@@ -49,10 +49,44 @@ const QUERY_CHANNEL_NAMES_QUERY = `
   }
 `;
 
+const QUERY_CHANNEL_ID_NAMES_QUERY = `
+  query QueryChannelIdNames($input: QueryChannelInput!) {
+    queryChannels(input: $input) {
+      edges {
+        node {
+          id
+          name
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+`;
+
 const channelNamesConnectionSchema = z.object({
   edges: z.array(
     z.object({
       node: z.object({
+        name: z.string(),
+      }),
+      cursor: z.string(),
+    })
+  ),
+  pageInfo: pageInfoSchema.pick({
+    hasNextPage: true,
+    endCursor: true,
+  }),
+});
+
+const channelIdNamesConnectionSchema = z.object({
+  edges: z.array(
+    z.object({
+      node: z.object({
+        id: z.string(),
         name: z.string(),
       }),
       cursor: z.string(),
@@ -1065,6 +1099,49 @@ export function useAllChannelNames(options?: { enabled?: boolean }) {
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export function useAllChannelOptions(options?: { enabled?: boolean }) {
+  const { handleError } = useErrorHandler();
+  const { t } = useTranslation();
+
+  return useQuery({
+    enabled: options?.enabled ?? true,
+    queryKey: ['channels', 'id-names'],
+    queryFn: async () => {
+      try {
+        const channels: Array<{ id: string; name: string }> = [];
+        let after: string | undefined;
+
+        for (;;) {
+          const data = await graphqlRequest<{ queryChannels: unknown }>(QUERY_CHANNEL_ID_NAMES_QUERY, {
+            input: {
+              first: 200,
+              after,
+              where: {
+                statusIn: ['enabled', 'disabled'],
+              },
+            },
+          });
+
+          const parsed = channelIdNamesConnectionSchema.parse(data?.queryChannels);
+          channels.push(...parsed.edges.map((edge) => edge.node));
+
+          if (!parsed.pageInfo.hasNextPage || !parsed.pageInfo.endCursor) {
+            break;
+          }
+
+          after = parsed.pageInfo.endCursor;
+        }
+
+        return channels;
+      } catch (error) {
+        handleError(error, t('common.errors.internalServerError'));
+        throw error;
+      }
+    },
+    staleTime: 5 * 60 * 1000,
   });
 }
 

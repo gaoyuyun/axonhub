@@ -1,6 +1,7 @@
 package anthropic
 
 import (
+	"encoding/base64"
 	"encoding/json"
 
 	"github.com/samber/lo"
@@ -20,7 +21,8 @@ func convertImageSourceToLLMImageURLPart(source *ImageSource, cacheControl *Cach
 		CacheControl: convertToLLMCacheControl(cacheControl),
 	}
 
-	if source.Type == "base64" {
+	switch source.Type {
+	case "base64":
 		if source.Data == "" {
 			return llm.MessageContentPart{}, false
 		}
@@ -37,13 +39,78 @@ func convertImageSourceToLLMImageURLPart(source *ImageSource, cacheControl *Cach
 		part.ImageURL = &llm.ImageURL{URL: imageURL}
 
 		return part, true
-	}
+	case "url":
+		if source.URL == "" {
+			return llm.MessageContentPart{}, false
+		}
 
-	if source.URL == "" {
+		part.ImageURL = &llm.ImageURL{URL: source.URL}
+
+		return part, true
+	case "file":
+		if source.FileID == "" {
+			return llm.MessageContentPart{}, false
+		}
+
+		part.Type = "file"
+		part.File = &llm.File{
+			Kind:     "image",
+			FileID:   source.FileID,
+			MIMEType: source.MediaType,
+		}
+
+		return part, true
+	default:
+		return llm.MessageContentPart{}, false
+	}
+}
+
+func convertDocumentSourceToLLMFilePart(
+	source *ContentSource,
+	title string,
+	cacheControl *CacheControl,
+) (llm.MessageContentPart, bool) {
+	if source == nil {
 		return llm.MessageContentPart{}, false
 	}
 
-	part.ImageURL = &llm.ImageURL{URL: source.URL}
+	part := llm.MessageContentPart{
+		Type:         "file",
+		CacheControl: convertToLLMCacheControl(cacheControl),
+		File: &llm.File{
+			Kind:     "document",
+			Filename: title,
+			MIMEType: source.MediaType,
+		},
+	}
+
+	switch source.Type {
+	case "base64":
+		if source.Data == "" {
+			return llm.MessageContentPart{}, false
+		}
+		part.File.FileData = source.Data
+	case "url":
+		if source.URL == "" {
+			return llm.MessageContentPart{}, false
+		}
+		part.File.URL = source.URL
+	case "file":
+		if source.FileID == "" {
+			return llm.MessageContentPart{}, false
+		}
+		part.File.FileID = source.FileID
+	case "text":
+		if source.Data == "" {
+			return llm.MessageContentPart{}, false
+		}
+		part.File.FileData = base64.StdEncoding.EncodeToString([]byte(source.Data))
+		if part.File.MIMEType == "" {
+			part.File.MIMEType = "text/plain"
+		}
+	default:
+		return llm.MessageContentPart{}, false
+	}
 
 	return part, true
 }
@@ -165,6 +232,11 @@ func convertToLLMRequest(anthropicReq *MessageRequest) (*llm.Request, error) {
 						contentParts = append(contentParts, part)
 						hasContent = true
 					}
+				case "document":
+					if part, ok := convertDocumentSourceToLLMFilePart(block.Source, block.Title, block.CacheControl); ok {
+						contentParts = append(contentParts, part)
+						hasContent = true
+					}
 				case "tool_result":
 					hasToolResult = true
 					// TODO: support other result types
@@ -195,6 +267,14 @@ func convertToLLMRequest(anthropicReq *MessageRequest) (*llm.Request, error) {
 									})
 								case "image":
 									if part, ok := convertImageSourceToLLMImageURLPart(contentBlock.Source, contentBlock.CacheControl); ok {
+										toolContentParts = append(toolContentParts, part)
+									}
+								case "document":
+									if part, ok := convertDocumentSourceToLLMFilePart(
+										contentBlock.Source,
+										contentBlock.Title,
+										contentBlock.CacheControl,
+									); ok {
 										toolContentParts = append(toolContentParts, part)
 									}
 								}

@@ -1,6 +1,9 @@
 package anthropic
 
 import (
+	"encoding/base64"
+	"strings"
+
 	"github.com/samber/lo"
 
 	"github.com/looplj/axonhub/llm"
@@ -720,7 +723,7 @@ func convertImageURLToAnthropicBlock(part llm.MessageContentPart) (MessageConten
 	if parsed := xurl.ParseDataURL(url); parsed != nil {
 		return MessageContentBlock{
 			Type: "image",
-			Source: &ImageSource{
+			Source: &ContentSource{
 				Type:      "base64",
 				MediaType: parsed.MediaType,
 				Data:      parsed.Data,
@@ -731,12 +734,128 @@ func convertImageURLToAnthropicBlock(part llm.MessageContentPart) (MessageConten
 
 	return MessageContentBlock{
 		Type: "image",
-		Source: &ImageSource{
+		Source: &ContentSource{
 			Type: "url",
 			URL:  part.ImageURL.URL,
 		},
 		CacheControl: convertToAnthropicCacheControl(part.CacheControl),
 	}, true
+}
+
+func isAnthropicDocumentMIMEType(mimeType string) bool {
+	mimeType = strings.ToLower(strings.TrimSpace(mimeType))
+	if mimeType == "" {
+		return false
+	}
+
+	return strings.HasPrefix(mimeType, "application/pdf") ||
+		strings.HasPrefix(mimeType, "text/")
+}
+
+func isAnthropicImageMIMEType(mimeType string) bool {
+	switch strings.ToLower(strings.TrimSpace(mimeType)) {
+	case "image/jpeg", "image/png", "image/gif", "image/webp":
+		return true
+	default:
+		return false
+	}
+}
+
+func buildAnthropicSourceFromFile(file *llm.File) *ContentSource {
+	if file == nil {
+		return nil
+	}
+
+	if file.FileID != "" {
+		return &ContentSource{
+			Type:   "file",
+			FileID: file.FileID,
+		}
+	}
+
+	mimeType := file.ResolvedMIMEType()
+	if data := file.InlineData(); data != "" {
+		if strings.HasPrefix(mimeType, "text/") {
+			decoded, err := base64.StdEncoding.DecodeString(data)
+			if err != nil {
+				decoded, err = base64.RawStdEncoding.DecodeString(data)
+			}
+			if err != nil {
+				return nil
+			}
+
+			return &ContentSource{
+				Type:      "text",
+				MediaType: "text/plain",
+				Data:      string(decoded),
+			}
+		}
+
+		return &ContentSource{
+			Type:      "base64",
+			MediaType: mimeType,
+			Data:      data,
+		}
+	}
+
+	if file.URL != "" {
+		return &ContentSource{
+			Type: "url",
+			URL:  file.URL,
+		}
+	}
+
+	return nil
+}
+
+func convertDocumentToAnthropicBlock(part llm.MessageContentPart) (MessageContentBlock, bool) {
+	if part.Document == nil || part.Document.URL == "" {
+		return MessageContentBlock{}, false
+	}
+
+	return convertFileToAnthropicBlock(llm.MessageContentPart{
+		Type:         "file",
+		CacheControl: part.CacheControl,
+		File: &llm.File{
+			URL:      part.Document.URL,
+			MIMEType: part.Document.MIMEType,
+		},
+	})
+}
+
+func convertFileToAnthropicBlock(part llm.MessageContentPart) (MessageContentBlock, bool) {
+	if part.File == nil {
+		return MessageContentBlock{}, false
+	}
+
+	mimeType := part.File.ResolvedMIMEType()
+	source := buildAnthropicSourceFromFile(part.File)
+	if source == nil {
+		return MessageContentBlock{}, false
+	}
+
+	if part.File.Kind == "image" || isAnthropicImageMIMEType(mimeType) {
+		return MessageContentBlock{
+			Type:         "image",
+			Source:       source,
+			CacheControl: convertToAnthropicCacheControl(part.CacheControl),
+		}, true
+	}
+
+	if part.File.Kind == "document" || part.File.FileID != "" || isAnthropicDocumentMIMEType(mimeType) {
+		block := MessageContentBlock{
+			Type:         "document",
+			Source:       source,
+			CacheControl: convertToAnthropicCacheControl(part.CacheControl),
+		}
+		if part.File.Filename != "" {
+			block.Title = part.File.Filename
+		}
+
+		return block, true
+	}
+
+	return MessageContentBlock{}, false
 }
 
 // convertToAnthropicTrivialContent converts llm.MessageContent to Anthropic MessageContent format.
@@ -760,6 +879,14 @@ func convertToAnthropicTrivialContent(content llm.MessageContent) *MessageConten
 				}
 			case "image_url":
 				if block, ok := convertImageURLToAnthropicBlock(part); ok {
+					blocks = append(blocks, block)
+				}
+			case "document":
+				if block, ok := convertDocumentToAnthropicBlock(part); ok {
+					blocks = append(blocks, block)
+				}
+			case "file":
+				if block, ok := convertFileToAnthropicBlock(part); ok {
 					blocks = append(blocks, block)
 				}
 			}
@@ -897,6 +1024,14 @@ func convertMultiplePartContent(msg llm.Message) (MessageContent, bool) {
 						CacheControl: convertToAnthropicCacheControl(part.CacheControl),
 					})
 				}
+			}
+		case "document":
+			if block, ok := convertDocumentToAnthropicBlock(part); ok {
+				appendOrdered(part.TransformerMetadata, block)
+			}
+		case "file":
+			if block, ok := convertFileToAnthropicBlock(part); ok {
+				appendOrdered(part.TransformerMetadata, block)
 			}
 		}
 	}

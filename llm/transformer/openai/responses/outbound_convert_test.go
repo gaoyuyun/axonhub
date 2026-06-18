@@ -221,6 +221,80 @@ func TestConvertToolMessage(t *testing.T) {
 	}
 }
 
+func TestConvertUserMessage_WithFilePart(t *testing.T) {
+	tests := []struct {
+		name     string
+		file     *llm.File
+		expected Item
+	}{
+		{
+			name: "data URL",
+			file: &llm.File{
+				FileData: "data:application/pdf;base64,ZmlsZS1kYXRh",
+				Filename: "report.pdf",
+				MIMEType: "application/pdf",
+				Detail:   lo.ToPtr("high"),
+			},
+			expected: Item{
+				Type:     "input_file",
+				FileData: lo.ToPtr("data:application/pdf;base64,ZmlsZS1kYXRh"),
+				Filename: "report.pdf",
+				Detail:   lo.ToPtr("high"),
+			},
+		},
+		{
+			name: "uploaded file ID",
+			file: &llm.File{
+				FileID: "file-123",
+			},
+			expected: Item{
+				Type:   "input_file",
+				FileID: "file-123",
+			},
+		},
+		{
+			name: "external file URL",
+			file: &llm.File{
+				URL: "https://example.com/report.pdf",
+			},
+			expected: Item{
+				Type:    "input_file",
+				FileURL: "https://example.com/report.pdf",
+			},
+		},
+		{
+			name: "data URL stored as URL",
+			file: &llm.File{
+				URL:      "data:application/pdf;base64,ZmlsZS1kYXRh",
+				Filename: "report.pdf",
+			},
+			expected: Item{
+				Type:     "input_file",
+				FileData: lo.ToPtr("data:application/pdf;base64,ZmlsZS1kYXRh"),
+				Filename: "report.pdf",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			item := convertUserMessage(llm.Message{
+				Role: "user",
+				Content: llm.MessageContent{
+					MultipleContent: []llm.MessageContentPart{{Type: "file", File: tt.file}},
+				},
+			})
+
+			require.NotNil(t, item.Content)
+			require.Equal(t, []Item{tt.expected}, item.Content.Items)
+
+			data, err := json.Marshal(item.Content.Items[0])
+			require.NoError(t, err)
+			require.NotContains(t, string(data), `"mime_type"`)
+		})
+	}
+}
+
 func TestConvertWebSearchToTool(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1136,6 +1210,26 @@ func TestConvertOutputToMessage(t *testing.T) {
 				require.Len(t, msg.Content.MultipleContent, 1)
 				require.Equal(t, "image_url", msg.Content.MultipleContent[0].Type)
 				require.Equal(t, "https://example.com/img.png", msg.Content.MultipleContent[0].ImageURL.URL)
+			},
+		},
+		{
+			name: "input_file output",
+			output: []Item{
+				{
+					Type:     "input_file",
+					FileURL:  "https://example.com/report.pdf",
+					Filename: "report.pdf",
+					Detail:   lo.ToPtr("low"),
+				},
+			},
+			validate: func(t *testing.T, msg llm.Message) {
+				require.Len(t, msg.Content.MultipleContent, 1)
+				require.Equal(t, "file", msg.Content.MultipleContent[0].Type)
+				require.NotNil(t, msg.Content.MultipleContent[0].File)
+				require.Equal(t, "report.pdf", msg.Content.MultipleContent[0].File.Filename)
+				require.Equal(t, "https://example.com/report.pdf", msg.Content.MultipleContent[0].File.URL)
+				require.Equal(t, "application/pdf", msg.Content.MultipleContent[0].File.ResolvedMIMEType())
+				require.Equal(t, "low", lo.FromPtr(msg.Content.MultipleContent[0].File.Detail))
 			},
 		},
 		{

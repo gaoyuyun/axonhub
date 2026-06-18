@@ -9,7 +9,6 @@ import (
 	"github.com/looplj/axonhub/llm"
 	"github.com/looplj/axonhub/llm/httpclient"
 	"github.com/looplj/axonhub/llm/streams"
-	"github.com/looplj/axonhub/llm/transformer"
 )
 
 // streamState tracks state across streaming events.
@@ -63,10 +62,12 @@ func (t *OutboundTransformer) transformStreamChunkWithState(
 		return nil, err
 	}
 
-	// Check if the response is valid.
-	// Gemini response empty event for some time, we should return error instead of continue to process.
-	if resp.ResponseID == "" {
-		return nil, transformer.ErrInvalidResponse
+	if resp.ResponseID == "" &&
+		resp.ModelVersion == "" &&
+		resp.PromptFeedback == nil &&
+		resp.UsageMetadata == nil &&
+		len(resp.Candidates) == 0 {
+		return nil, nil
 	}
 
 	// Convert to unified response format (streaming) with tool call index tracking

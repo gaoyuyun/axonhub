@@ -175,6 +175,31 @@ func convertUserMessage(msg llm.Message) Item {
 						Detail:   p.ImageURL.Detail,
 					})
 				}
+			case "file":
+				if p.File != nil {
+					item := Item{
+						Type:     "input_file",
+						Filename: p.File.Filename,
+						Detail:   p.File.Detail,
+					}
+
+					switch {
+					case p.File.FileID != "":
+						item.FileID = p.File.FileID
+					case p.File.URL != "":
+						if strings.HasPrefix(p.File.URL, "data:") {
+							item.FileData = lo.ToPtr(p.File.URL)
+						} else {
+							item.FileURL = p.File.URL
+						}
+					case p.File.FileData != "":
+						item.FileData = lo.ToPtr(p.File.FileData)
+					default:
+						continue
+					}
+
+					contentItems = append(contentItems, item)
+				}
 			case "compaction", "compaction_summary":
 				if p.Compact != nil {
 					contentItems = append(contentItems, compactionItemFromPart(p, p.Type))
@@ -732,6 +757,22 @@ func convertOutputToMessage(output []Item, transformerMetadata map[string]any) l
 					},
 				})
 			}
+		case "input_file":
+			flushText()
+			fileData := ""
+			if outputItem.FileData != nil {
+				fileData = *outputItem.FileData
+			}
+			contentParts = append(contentParts, llm.MessageContentPart{
+				Type: "file",
+				File: &llm.File{
+					FileID:   outputItem.FileID,
+					FileData: fileData,
+					URL:      outputItem.FileURL,
+					Filename: outputItem.Filename,
+					Detail:   outputItem.Detail,
+				},
+			})
 		}
 	}
 

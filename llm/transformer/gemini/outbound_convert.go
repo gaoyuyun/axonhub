@@ -379,6 +379,14 @@ func convertLLMMessageToGeminiContent(msg *llm.Message) *Content {
 						lastPart = geminiPart
 					}
 				}
+			case "file":
+				if part.File != nil {
+					geminiPart := convertFileToGeminiPart(part.File)
+					if geminiPart != nil {
+						parts = append(parts, geminiPart)
+						lastPart = geminiPart
+					}
+				}
 			case "input_audio":
 				if part.InputAudio != nil && part.InputAudio.Data != "" {
 					geminiPart := convertAudioToGeminiPart(part.InputAudio)

@@ -692,6 +692,60 @@ func TestConvertToAnthropicRequest(t *testing.T) {
 			},
 		},
 		{
+			name: "request with file content",
+			chatReq: &llm.Request{
+				Model:     "claude-3-sonnet-20240229",
+				MaxTokens: lo.ToPtr(int64(1024)),
+				Messages: []llm.Message{
+					{
+						Role: "user",
+						Content: llm.MessageContent{
+							MultipleContent: []llm.MessageContentPart{
+								{
+									Type: "text",
+									Text: lo.ToPtr("Summarize this PDF"),
+								},
+								{
+									Type: "file",
+									File: &llm.File{
+										Filename: "report.pdf",
+										FileData: "JVBERi0xLjQK",
+										MIMEType: "application/pdf",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &MessageRequest{
+				Model:     "claude-3-sonnet-20240229",
+				MaxTokens: 1024,
+				Messages: []MessageParam{
+					{
+						Role: "user",
+						Content: MessageContent{
+							MultipleContent: []MessageContentBlock{
+								{
+									Type: "text",
+									Text: lo.ToPtr("Summarize this PDF"),
+								},
+								{
+									Type:  "document",
+									Title: "report.pdf",
+									Source: &ContentSource{
+										Type:      "base64",
+										MediaType: "application/pdf",
+										Data:      "JVBERi0xLjQK",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "request with multiple images and text",
 			chatReq: &llm.Request{
 				Model:     "claude-3-sonnet-20240229",

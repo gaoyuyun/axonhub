@@ -43,6 +43,22 @@ func TestMessageContent_MarshalJSON(t *testing.T) {
 			},
 			expected: `[{"type":"text","text":"Look at this"},{"type":"image_url","image_url":{"url":"https://example.com/image.png"}}]`,
 		},
+		{
+			name: "file part preserved as array",
+			content: MessageContent{
+				MultipleContent: []MessageContentPart{
+					{
+						Type: "file",
+						File: &File{
+							Filename: "report.pdf",
+							FileData: "ZmlsZS1kYXRh",
+							MIMEType: "application/pdf",
+						},
+					},
+				},
+			},
+			expected: `[{"type":"file","file":{"file_data":"ZmlsZS1kYXRh","filename":"report.pdf","mime_type":"application/pdf"}}]`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -79,6 +95,19 @@ func TestMessageContent_UnmarshalJSON(t *testing.T) {
 				require.Equal(t, "Hello", *c.MultipleContent[0].Text)
 				require.Equal(t, "image_url", c.MultipleContent[1].Type)
 				require.Equal(t, "https://example.com/img.png", c.MultipleContent[1].ImageURL.URL)
+			},
+		},
+		{
+			name:  "file content",
+			input: `[{"type":"file","file":{"file_data":"ZmlsZS1kYXRh","filename":"report.pdf","mime_type":"application/pdf"}}]`,
+			validate: func(t *testing.T, c MessageContent) {
+				require.Nil(t, c.Content)
+				require.Len(t, c.MultipleContent, 1)
+				require.Equal(t, "file", c.MultipleContent[0].Type)
+				require.NotNil(t, c.MultipleContent[0].File)
+				require.Equal(t, "ZmlsZS1kYXRh", c.MultipleContent[0].File.FileData)
+				require.Equal(t, "report.pdf", c.MultipleContent[0].File.Filename)
+				require.Equal(t, "application/pdf", c.MultipleContent[0].File.MIMEType)
 			},
 		},
 	}

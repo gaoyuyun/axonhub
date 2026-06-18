@@ -28,6 +28,9 @@ const (
 
 	// PromptActivationConditionTypeAPIKey is the condition to activate the prompt for the specified API key.
 	PromptActivationConditionTypeAPIKey PromptActivationConditionType = "api_key"
+
+	// PromptActivationConditionTypeChannelID is the condition to activate the prompt for the specified channel ID.
+	PromptActivationConditionTypeChannelID PromptActivationConditionType = "channel"
 )
 
 // PromptActivationCondition is the condition to activate the prompt.
@@ -45,6 +48,9 @@ type PromptActivationCondition struct {
 
 	// APIKeyID is the ID of the API key to activate the prompt.
 	APIKeyID *int `json:"api_key_id,omitempty"`
+
+	// ChannelID is the ID of the channel to activate the prompt.
+	ChannelID *int `json:"channel_id,omitempty"`
 }
 
 // PromptActivationConditionComposite is the composite condition to activate the prompt.

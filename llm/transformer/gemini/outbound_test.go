@@ -302,6 +302,147 @@ func TestNewOutboundTransformer(t *testing.T) {
 	}
 }
 
+func TestOutboundTransformer_FilePartsFollowOfficialSchema(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      Config
+		file        *llm.File
+		wantField   string
+		wantPayload map[string]any
+		wantError   string
+	}{
+		{
+			name: "inline PDF uses inlineData",
+			config: Config{
+				BaseURL:        DefaultBaseURL,
+				APIKeyProvider: auth.NewStaticKeyProvider("test-key"),
+			},
+			file: &llm.File{
+				Filename: "report.pdf",
+				FileData: "JVBERi0xLjQK",
+				MIMEType: "application/pdf",
+			},
+			wantField: "inlineData",
+			wantPayload: map[string]any{
+				"mimeType": "application/pdf",
+				"data":     "JVBERi0xLjQK",
+			},
+		},
+		{
+			name: "Gemini Files API URI uses fileData",
+			config: Config{
+				BaseURL:        DefaultBaseURL,
+				APIKeyProvider: auth.NewStaticKeyProvider("test-key"),
+			},
+			file: &llm.File{
+				URL:      "https://generativelanguage.googleapis.com/v1beta/files/abc123",
+				MIMEType: "application/pdf",
+			},
+			wantField: "fileData",
+			wantPayload: map[string]any{
+				"mimeType": "application/pdf",
+				"fileUri":  "https://generativelanguage.googleapis.com/v1beta/files/abc123",
+			},
+		},
+		{
+			name: "Vertex public URL uses fileData",
+			config: Config{
+				BaseURL:        "https://us-central1-aiplatform.googleapis.com",
+				PlatformType:   PlatformVertex,
+				APIKeyProvider: auth.NewStaticKeyProvider("test-key"),
+			},
+			file: &llm.File{
+				URL:      "https://example.com/report.pdf",
+				MIMEType: "application/pdf",
+			},
+			wantField: "fileData",
+			wantPayload: map[string]any{
+				"mimeType": "application/pdf",
+				"fileUri":  "https://example.com/report.pdf",
+			},
+		},
+		{
+			name: "Gemini GenerateContent rejects arbitrary external URL",
+			config: Config{
+				BaseURL:        DefaultBaseURL,
+				APIKeyProvider: auth.NewStaticKeyProvider("test-key"),
+			},
+			file:      &llm.File{URL: "https://example.com/report.pdf", MIMEType: "application/pdf"},
+			wantError: "only accepts Gemini Files API URIs",
+		},
+		{
+			name: "provider file ID is not mapped to a nonexistent Gemini field",
+			config: Config{
+				BaseURL:        DefaultBaseURL,
+				APIKeyProvider: auth.NewStaticKeyProvider("test-key"),
+			},
+			file:      &llm.File{FileID: "file_123", MIMEType: "application/pdf"},
+			wantError: "provider file_id values cannot be forwarded",
+		},
+		{
+			name: "inline file requires MIME type",
+			config: Config{
+				BaseURL:        DefaultBaseURL,
+				APIKeyProvider: auth.NewStaticKeyProvider("test-key"),
+			},
+			file:      &llm.File{FileData: "AAEC"},
+			wantError: "requires a MIME type",
+		},
+		{
+			name: "wildcard MIME type is rejected",
+			config: Config{
+				BaseURL:        DefaultBaseURL,
+				APIKeyProvider: auth.NewStaticKeyProvider("test-key"),
+			},
+			file:      &llm.File{FileData: "AAEC", MIMEType: "video/*"},
+			wantError: "fixed IANA MIME type",
+		},
+		{
+			name: "Vertex rejects unsupported file URI scheme",
+			config: Config{
+				BaseURL:        "https://us-central1-aiplatform.googleapis.com",
+				PlatformType:   PlatformVertex,
+				APIKeyProvider: auth.NewStaticKeyProvider("test-key"),
+			},
+			file:      &llm.File{URL: "file:///tmp/report.pdf", MIMEType: "application/pdf"},
+			wantError: "must use an HTTP(S) or gs:// URI",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outbound, err := NewOutboundTransformerWithConfig(tt.config)
+			require.NoError(t, err)
+
+			httpReq, err := outbound.TransformRequest(t.Context(), &llm.Request{
+				Model: "gemini-2.5-flash",
+				Messages: []llm.Message{{
+					Role: "user",
+					Content: llm.MessageContent{MultipleContent: []llm.MessageContentPart{{
+						Type: "file",
+						File: tt.file,
+					}}},
+				}},
+			})
+			if tt.wantError != "" {
+				require.Error(t, err)
+				require.Nil(t, httpReq)
+				require.Contains(t, err.Error(), tt.wantError)
+				return
+			}
+
+			require.NoError(t, err)
+			var payload map[string]any
+			require.NoError(t, json.Unmarshal(httpReq.Body, &payload))
+			contents := payload["contents"].([]any)
+			content := contents[0].(map[string]any)
+			parts := content["parts"].([]any)
+			part := parts[0].(map[string]any)
+			require.Equal(t, map[string]any{tt.wantField: tt.wantPayload}, part)
+		})
+	}
+}
+
 func TestNewOutboundTransformerWithConfig(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -19,25 +19,27 @@ func NewPromptMatcher() *PromptMatcher {
 	return &PromptMatcher{}
 }
 
-// MatchPrompt checks if a prompt's conditions are satisfied for the given model and API key ID.
+// MatchPrompt checks if a prompt's conditions are satisfied for the given model, API key ID, and channel ID.
 // Returns true if no conditions are defined (always match) or all conditions are met.
-func (m *PromptMatcher) MatchPrompt(prompt *ent.Prompt, model string, apiKeyID int) bool {
+// channelID of 0 means channel context is not available; channel conditions will not match.
+func (m *PromptMatcher) MatchPrompt(prompt *ent.Prompt, model string, apiKeyID int, channelID int) bool {
 	if prompt == nil {
 		return false
 	}
 
-	return m.MatchConditions(prompt.Settings.Conditions, model, apiKeyID)
+	return m.MatchConditions(prompt.Settings.Conditions, model, apiKeyID, channelID)
 }
 
 // MatchConditions checks if all composite conditions are satisfied.
 // Returns true if no conditions are defined (always match) or all conditions are met.
-func (m *PromptMatcher) MatchConditions(conditions []objects.PromptActivationConditionComposite, model string, apiKeyID int) bool {
+// channelID of 0 means channel context is not available; channel conditions will not match.
+func (m *PromptMatcher) MatchConditions(conditions []objects.PromptActivationConditionComposite, model string, apiKeyID int, channelID int) bool {
 	if len(conditions) == 0 {
 		return true
 	}
 
 	for _, composite := range conditions {
-		if !m.matchCompositeCondition(composite, model, apiKeyID) {
+		if !m.matchCompositeCondition(composite, model, apiKeyID, channelID) {
 			return false
 		}
 	}
@@ -47,13 +49,13 @@ func (m *PromptMatcher) MatchConditions(conditions []objects.PromptActivationCon
 
 // matchCompositeCondition checks if at least one condition in the composite is satisfied.
 // Returns true if conditions list is empty or at least one condition matches.
-func (m *PromptMatcher) matchCompositeCondition(composite objects.PromptActivationConditionComposite, model string, apiKeyID int) bool {
+func (m *PromptMatcher) matchCompositeCondition(composite objects.PromptActivationConditionComposite, model string, apiKeyID int, channelID int) bool {
 	if len(composite.Conditions) == 0 {
 		return true
 	}
 
 	for _, condition := range composite.Conditions {
-		if m.matchCondition(condition, model, apiKeyID) {
+		if m.matchCondition(condition, model, apiKeyID, channelID) {
 			return true
 		}
 	}
@@ -62,7 +64,7 @@ func (m *PromptMatcher) matchCompositeCondition(composite objects.PromptActivati
 }
 
 // matchCondition checks if a single condition is satisfied.
-func (m *PromptMatcher) matchCondition(condition objects.PromptActivationCondition, model string, apiKeyID int) bool {
+func (m *PromptMatcher) matchCondition(condition objects.PromptActivationCondition, model string, apiKeyID int, channelID int) bool {
 	switch condition.Type {
 	case objects.PromptActivationConditionTypeModelID:
 		return m.matchModelID(condition, model)
@@ -70,6 +72,8 @@ func (m *PromptMatcher) matchCondition(condition objects.PromptActivationConditi
 		return m.matchModelPattern(condition, model)
 	case objects.PromptActivationConditionTypeAPIKey:
 		return m.matchAPIKeyID(condition, apiKeyID)
+	case objects.PromptActivationConditionTypeChannelID:
+		return m.matchChannelID(condition, channelID)
 	default:
 		return false
 	}
@@ -102,10 +106,38 @@ func (m *PromptMatcher) matchAPIKeyID(condition objects.PromptActivationConditio
 	return *condition.APIKeyID == apiKeyID
 }
 
-// FilterMatchingPrompts filters prompts that match the given model and API key ID.
-func (m *PromptMatcher) FilterMatchingPrompts(prompts []*ent.Prompt, model string, apiKeyID int) []*ent.Prompt {
+// matchChannelID checks if the channel ID matches.
+// Returns false when channelID is 0 (channel context unavailable).
+func (m *PromptMatcher) matchChannelID(condition objects.PromptActivationCondition, channelID int) bool {
+	if condition.ChannelID == nil || channelID == 0 {
+		return false
+	}
+
+	return *condition.ChannelID == channelID
+}
+
+// HasChannelConditions checks if a prompt has any channel condition in its settings.
+func HasChannelConditions(prompt *ent.Prompt) bool {
+	if prompt == nil {
+		return false
+	}
+
+	for _, composite := range prompt.Settings.Conditions {
+		for _, condition := range composite.Conditions {
+			if condition.Type == objects.PromptActivationConditionTypeChannelID {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// FilterMatchingPrompts filters prompts that match the given model, API key ID, and channel ID.
+// channelID of 0 means channel context is not available; channel conditions will not match.
+func (m *PromptMatcher) FilterMatchingPrompts(prompts []*ent.Prompt, model string, apiKeyID int, channelID int) []*ent.Prompt {
 	return lo.Filter(prompts, func(p *ent.Prompt, _ int) bool {
-		return m.MatchPrompt(p, model, apiKeyID)
+		return m.MatchPrompt(p, model, apiKeyID, channelID)
 	})
 }
 

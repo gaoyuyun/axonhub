@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mime"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/looplj/axonhub/llm"
@@ -133,6 +135,10 @@ func (t *OutboundTransformer) TransformRequest(ctx context.Context, llmReq *llm.
 		return nil, fmt.Errorf("%w: messages are required,%v", transformer.ErrInvalidRequest, llmReq.Messages)
 	}
 
+	if err := validateGeminiFileParts(llmReq.Messages, &t.config); err != nil {
+		return nil, err
+	}
+
 	// Convert to Gemini request format with config
 	geminiReq := convertLLMToGeminiRequestWithConfig(llmReq, &t.config)
 
@@ -180,6 +186,105 @@ func (t *OutboundTransformer) TransformRequest(ctx context.Context, llmReq *llm.
 		SkipInboundQueryMerge: true,
 		Metadata:              nil,
 	}, nil
+}
+
+func validateGeminiFileParts(messages []llm.Message, config *Config) error {
+	for _, msg := range messages {
+		for _, part := range msg.Content.MultipleContent {
+			switch part.Type {
+			case "file":
+				if err := validateGeminiFile(part.File, config); err != nil {
+					return err
+				}
+			case "document":
+				if part.Document == nil {
+					continue
+				}
+				if err := validateGeminiFile(&llm.File{
+					Kind:     "document",
+					URL:      part.Document.URL,
+					MIMEType: part.Document.MIMEType,
+				}, config); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateGeminiFile(file *llm.File, config *Config) error {
+	if file == nil {
+		return nil
+	}
+
+	if file.FileID != "" && file.InlineData() == "" && file.URL == "" {
+		return fmt.Errorf(
+			"%w: gemini GenerateContent requires inline data or a fileUri; provider file_id values cannot be forwarded",
+			transformer.ErrInvalidRequest,
+		)
+	}
+
+	mimeType := file.ResolvedMIMEType()
+	if mimeType == "" {
+		return fmt.Errorf("%w: gemini file input requires a MIME type", transformer.ErrInvalidRequest)
+	}
+	parsedMIMEType, _, err := mime.ParseMediaType(mimeType)
+	if err != nil || !strings.Contains(parsedMIMEType, "/") || strings.Contains(parsedMIMEType, "*") || parsedMIMEType == "application/octet-stream" {
+		return fmt.Errorf("%w: gemini file input requires a supported fixed IANA MIME type, got %q", transformer.ErrInvalidRequest, mimeType)
+	}
+
+	if file.InlineData() != "" {
+		return nil
+	}
+
+	if file.URL == "" {
+		return fmt.Errorf("%w: gemini file content is missing", transformer.ErrInvalidRequest)
+	}
+
+	if strings.HasPrefix(file.URL, "data:") {
+		return nil
+	}
+
+	if config != nil && config.PlatformType == PlatformVertex {
+		parsed, err := url.Parse(file.URL)
+		if err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https" || parsed.Scheme == "gs") {
+			return nil
+		}
+
+		return fmt.Errorf(
+			"%w: Vertex Gemini fileUri must use an HTTP(S) or gs:// URI",
+			transformer.ErrInvalidRequest,
+		)
+	}
+
+	if !isGeminiFilesAPIURI(file.URL, config) {
+		return fmt.Errorf(
+			"%w: gemini GenerateContent only accepts Gemini Files API URIs; external URLs require Vertex AI or must be downloaded and sent inline",
+			transformer.ErrInvalidRequest,
+		)
+	}
+
+	return nil
+}
+
+func isGeminiFilesAPIURI(raw string, config *Config) bool {
+	parsed, err := url.Parse(raw)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || !strings.Contains(parsed.Path, "/files/") {
+		return false
+	}
+
+	if strings.EqualFold(parsed.Hostname(), "generativelanguage.googleapis.com") {
+		return true
+	}
+
+	if config == nil || config.BaseURL == "" {
+		return false
+	}
+
+	base, err := url.Parse(config.BaseURL)
+	return err == nil && strings.EqualFold(parsed.Hostname(), base.Hostname())
 }
 
 // buildFullRequestURL constructs the appropriate URL for the Gemini API.

@@ -298,7 +298,7 @@ func (m MessageContent) ExtractTrivalBlocks(cacheControl *CacheControl) []Messag
 				contentBlocks = append(contentBlocks, part)
 			}
 
-			if part.Type == "image_url" {
+			if part.Type == "image_url" || part.Type == "document" {
 				contentBlocks = append(contentBlocks, part)
 			}
 		}
@@ -349,7 +349,7 @@ func (c *MessageContent) UnmarshalJSON(data []byte) error {
 
 // MessageContentBlock represents different types of content blocks.
 type MessageContentBlock struct {
-	// Any of "text", "image", "thinking", "redacted_thinking", "tool_use", "server_tool_use", "tool_result".
+	// Any of "text", "image", "document", "thinking", "redacted_thinking", "tool_use", "server_tool_use", "tool_result".
 	Type string `json:"type"`
 
 	// Text will be present if type is "text".
@@ -367,8 +367,8 @@ type MessageContentBlock struct {
 	// Data will be present if type is "redacted_thinking".
 	Data string `json:"data,omitempty"`
 
-	// Image will be present if type is "image".
-	Source *ImageSource `json:"source,omitempty"`
+	// Source will be present if type is "image" or "document".
+	Source *ContentSource `json:"source,omitempty"`
 
 	// Tool use request
 	// tool_use or server_tool_use
@@ -427,23 +427,27 @@ func (b MessageContentBlock) MarshalJSON() ([]byte, error) {
 	return json.Marshal(blockAlias(b))
 }
 
-// ImageSource represents image source for Anthropic.
-type ImageSource struct {
-	// Type is the type of image source.
-	// Available values: base64, url
+// ContentSource represents content source for Anthropic image/document blocks.
+type ContentSource struct {
+	// Type is the type of source.
+	// Available values: base64, url, text, file.
 	Type string `json:"type"`
-	// MediaType is the media type of image.
-	// Available values: image/png, image/jpeg, image/gif, image/webp
-	MediaType string `json:"media_type"`
+	// MediaType is the media type of the source.
+	MediaType string `json:"media_type,omitempty"`
 
-	// Data is the image data.
-	// If Type is base64, Data is the base64-encoded image data.
-	Data string `json:"data"`
+	// Data is base64-encoded data for base64 sources and plain UTF-8 text for
+	// text document sources.
+	Data string `json:"data,omitempty"`
 
-	// URL is the URL of the image.
+	// URL is the URL of the source.
 	// It will be present if Type is url.
 	URL string `json:"url,omitempty"`
+
+	// FileID is the Anthropic Files API identifier when Type is file.
+	FileID string `json:"file_id,omitempty"`
 }
+
+type ImageSource = ContentSource
 
 // StreamEvent represents events in Anthropic streaming response.
 type StreamEvent struct {

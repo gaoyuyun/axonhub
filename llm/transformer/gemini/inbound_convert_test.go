@@ -906,6 +906,28 @@ func TestConvertGeminiContentToLLMMessage(t *testing.T) {
 			},
 		},
 		{
+			name: "generic file data",
+			input: &Content{
+				Role: "user",
+				Parts: []*Part{
+					{
+						FileData: &FileData{
+							MIMEType: "application/zip",
+							FileURI:  "gs://bucket/archive.zip",
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, result *llm.Message) {
+				t.Helper()
+				require.Len(t, result.Content.MultipleContent, 1)
+				require.Equal(t, "file", result.Content.MultipleContent[0].Type)
+				require.NotNil(t, result.Content.MultipleContent[0].File)
+				require.Equal(t, "gs://bucket/archive.zip", result.Content.MultipleContent[0].File.URL)
+				require.Equal(t, "application/zip", result.Content.MultipleContent[0].File.MIMEType)
+			},
+		},
+		{
 			name: "function call",
 			input: &Content{
 				Role: "model",

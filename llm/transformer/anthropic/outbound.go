@@ -2,6 +2,7 @@ package anthropic
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -60,6 +61,10 @@ type Config struct {
 	// When set, it replaces the default API path (e.g., "/messages").
 	// Must start with "/". Skips default version normalization when set.
 	EndpointPath string `json:"endpoint_path,omitempty"`
+
+	// CacheTTL configures the TTL for cache_control breakpoints injected by optimizeCacheControl.
+	// Valid values: "" (default 5m), "5m", "1h". Empty string means Anthropic default (5m).
+	CacheTTL string `json:"cache_ttl,omitempty"`
 
 	// Thinking configuration
 	// Maps ReasoningEffort values to Anthropic thinking budget tokens
@@ -161,6 +166,10 @@ func (t *OutboundTransformer) TransformRequest(
 		return nil, fmt.Errorf("%w: max_tokens must be positive", transformer.ErrInvalidRequest)
 	}
 
+	if err := validateAnthropicMessageParts(llmReq.Messages, t.config); err != nil {
+		return nil, err
+	}
+
 	// Convert to Anthropic request format
 	anthropicReq := convertToAnthropicRequestWithConfig(llmReq, t.config)
 
@@ -172,7 +181,7 @@ func (t *OutboundTransformer) TransformRequest(
 	//   2. Explicit cache breakpoints: per-block cache_control fields. We run
 	//      our optimization pipeline only in this mode.
 	if anthropicReq.CacheControl == nil && countCacheControls(anthropicReq) > 0 {
-		optimizeCacheControl(anthropicReq)
+		optimizeCacheControl(anthropicReq, t.config.CacheTTL)
 	}
 
 	// Determine endpoint based on platform
@@ -219,6 +228,10 @@ func (t *OutboundTransformer) TransformRequest(
 		case PlatformBedrock:
 			anthropicReq.AnthropicBeta = append(anthropicReq.AnthropicBeta, "web-search-2025-03-05")
 		}
+	}
+
+	if containsAnthropicFileSource(anthropicReq.Messages) {
+		headers.Add("Anthropic-Beta", "files-api-2025-04-14")
 	}
 
 	// Prepare authentication
@@ -296,6 +309,126 @@ func (t *OutboundTransformer) buildFullRequestURL(chatReq *llm.Request) (string,
 
 		return t.config.BaseURL + "/messages", nil
 	}
+}
+
+func validateAnthropicMessageParts(messages []llm.Message, config *Config) error {
+	for _, msg := range messages {
+		for _, part := range msg.Content.MultipleContent {
+			switch part.Type {
+			case "file":
+				if part.File == nil {
+					continue
+				}
+
+				if err := validateAnthropicFile(part.File, config); err != nil {
+					return err
+				}
+			case "document":
+				if part.Document == nil {
+					continue
+				}
+
+				file := &llm.File{
+					Kind:     "document",
+					URL:      part.Document.URL,
+					MIMEType: part.Document.MIMEType,
+				}
+				if err := validateAnthropicFile(file, config); err != nil {
+					return err
+				}
+			case "video_url":
+				return fmt.Errorf("%w: anthropic does not support video message parts", transformer.ErrInvalidRequest)
+			case "input_audio":
+				return fmt.Errorf("%w: anthropic does not support audio message parts", transformer.ErrInvalidRequest)
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateAnthropicFile(file *llm.File, config *Config) error {
+	if file == nil {
+		return nil
+	}
+
+	if file.FileID != "" {
+		if config != nil && config.Type != "" && config.Type != PlatformDirect {
+			return fmt.Errorf(
+				"%w: anthropic file_id sources are only supported by the direct Claude API",
+				transformer.ErrInvalidRequest,
+			)
+		}
+		mimeType := file.ResolvedMIMEType()
+		if mimeType != "" && file.Kind != "image" && !isAnthropicImageMIMEType(mimeType) && !isAnthropicDocumentMIMEType(mimeType) {
+			return fmt.Errorf(
+				"%w: anthropic Files API content cannot be represented as an image or document block, got %q",
+				transformer.ErrInvalidRequest,
+				mimeType,
+			)
+		}
+
+		return nil
+	}
+
+	mimeType := file.ResolvedMIMEType()
+	if file.Kind != "image" && !isAnthropicImageMIMEType(mimeType) && !isAnthropicDocumentMIMEType(mimeType) {
+		return fmt.Errorf(
+			"%w: anthropic only supports JPEG/PNG/GIF/WebP images and PDF/text documents in message content, got %q",
+			transformer.ErrInvalidRequest,
+			mimeType,
+		)
+	}
+	if file.Kind == "image" && file.FileID == "" && !isAnthropicImageMIMEType(mimeType) {
+		return fmt.Errorf(
+			"%w: anthropic image files must use image/jpeg, image/png, image/gif, or image/webp, got %q",
+			transformer.ErrInvalidRequest,
+			mimeType,
+		)
+	}
+
+	if file.URL != "" && !strings.HasPrefix(file.URL, "data:") {
+		if config != nil && (config.Type == PlatformBedrock || config.Type == PlatformVertex) {
+			return fmt.Errorf(
+				"%w: anthropic %s only supports base64 document sources",
+				transformer.ErrInvalidRequest,
+				config.Type,
+			)
+		}
+		if strings.HasPrefix(mimeType, "text/") {
+			return fmt.Errorf(
+				"%w: anthropic URL document sources only support PDFs; use inline text or a Files API file_id",
+				transformer.ErrInvalidRequest,
+			)
+		}
+	}
+
+	if strings.HasPrefix(mimeType, "text/") && file.InlineData() != "" {
+		data := file.InlineData()
+		if _, err := base64.StdEncoding.DecodeString(data); err != nil {
+			if _, rawErr := base64.RawStdEncoding.DecodeString(data); rawErr != nil {
+				return fmt.Errorf("%w: anthropic text file data must be base64 encoded", transformer.ErrInvalidRequest)
+			}
+		}
+	}
+
+	if file.InlineData() == "" && file.URL == "" {
+		return fmt.Errorf("%w: anthropic file content is missing", transformer.ErrInvalidRequest)
+	}
+
+	return nil
+}
+
+func containsAnthropicFileSource(messages []MessageParam) bool {
+	for _, msg := range messages {
+		for _, block := range msg.Content.MultipleContent {
+			if block.Source != nil && block.Source.Type == "file" && block.Source.FileID != "" {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // TransformResponse transforms Anthropic HTTP response to ChatCompletionResponse.

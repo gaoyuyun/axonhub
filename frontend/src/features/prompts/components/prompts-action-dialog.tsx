@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { AutoComplete } from '@/components/auto-complete';
 import { useQueryModels } from '@/gql/models';
 import { useApiKeys } from '@/features/apikeys/data/apikeys';
+import { useAllChannelOptions } from '@/features/channels/data/channels';
 import { usePrompts } from '../context/prompts-context';
 import { useCreatePrompt, useUpdatePrompt } from '../data/prompts';
 import { CreatePromptInput, UpdatePromptInput } from '../data/schema';
@@ -20,7 +21,7 @@ import { useSelectedProjectId } from '@/stores/projectStore';
 import { extractNumberIDAsNumber, buildGUID } from '@/lib/utils';
 
 const conditionSchema = z.object({
-  type: z.enum(['model_id', 'model_pattern', 'api_key']),
+  type: z.enum(['model_id', 'model_pattern', 'api_key', 'channel']),
   value: z.string().min(1, 'Condition value is required'),
 });
 
@@ -86,10 +87,11 @@ interface ConditionGroupProps {
   t: any;
   modelOptions: Array<{ value: string; label: string }>;
   apiKeyOptions: Array<{ value: string; label: string }>;
+  channelOptions: Array<{ value: string; label: string }>;
   dialogContentRef: React.RefObject<HTMLDivElement | null>;
 }
 
-function ConditionGroup({ groupIndex, form, onRemoveGroup, t, modelOptions, apiKeyOptions, dialogContentRef }: ConditionGroupProps) {
+function ConditionGroup({ groupIndex, form, onRemoveGroup, t, modelOptions, apiKeyOptions, channelOptions, dialogContentRef }: ConditionGroupProps) {
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: `conditionGroups.${groupIndex}.conditions`,
@@ -166,6 +168,7 @@ function ConditionGroup({ groupIndex, form, onRemoveGroup, t, modelOptions, apiK
                          <SelectItem value='model_id'>{t('prompts.conditionTypes.model_id')}</SelectItem>
                          <SelectItem value='model_pattern'>{t('prompts.conditionTypes.model_pattern')}</SelectItem>
                          <SelectItem value='api_key'>{t('prompts.conditionTypes.api_key')}</SelectItem>
+                         <SelectItem value='channel'>{t('prompts.conditionTypes.channel')}</SelectItem>
                        </SelectContent>
                      </Select>
                    </FormItem>
@@ -190,6 +193,19 @@ function ConditionGroup({ groupIndex, form, onRemoveGroup, t, modelOptions, apiK
                            </SelectTrigger>
                            <SelectContent>
                              {apiKeyOptions.map((option) => (
+                               <SelectItem key={option.value} value={option.value}>
+                                 {option.label}
+                               </SelectItem>
+                             ))}
+                           </SelectContent>
+                         </Select>
+                       ) : conditions?.[conditionIndex]?.type === 'channel' ? (
+                         <Select onValueChange={field.onChange} value={field.value}>
+                           <SelectTrigger className='h-10 w-full text-xs'>
+                             <SelectValue placeholder={t('prompts.fields.channelPlaceholder')} />
+                           </SelectTrigger>
+                           <SelectContent>
+                             {channelOptions.map((option) => (
                                <SelectItem key={option.value} value={option.value}>
                                  {option.label}
                                </SelectItem>
@@ -230,12 +246,13 @@ export function PromptsActionDialog() {
   const createPrompt = useCreatePrompt();
   const updatePrompt = useUpdatePrompt();
   const selectedProjectId = useSelectedProjectId();
-  const { data: availableModels, mutateAsync: fetchModels } = useQueryModels();
-  const { data: apiKeysData } = useApiKeys({ first: 100 });
-  const dialogContentRef = useRef<HTMLDivElement>(null);
-
   const isEdit = open === 'edit';
   const isOpen = open === 'create' || open === 'edit';
+
+  const { data: availableModels, mutateAsync: fetchModels } = useQueryModels();
+  const { data: apiKeysData } = useApiKeys({ first: 100 });
+  const { data: channelsData } = useAllChannelOptions({ enabled: isOpen });
+  const dialogContentRef = useRef<HTMLDivElement>(null);
 
   const modelOptions = useMemo(() => {
     if (!availableModels) return [];
@@ -252,6 +269,14 @@ export function PromptsActionDialog() {
       label: edge.node.name || `API Key #${edge.node.id}`,
     }));
   }, [apiKeysData]);
+
+  const channelOptions = useMemo(() => {
+    if (!channelsData) return [];
+    return channelsData.map((ch) => ({
+      value: ch.id,
+      label: ch.name,
+    }));
+  }, [channelsData]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(isEdit ? updatePromptSchema : createPromptSchema) as any,
@@ -293,6 +318,8 @@ export function PromptsActionDialog() {
           } else if (condition.type === 'api_key' && condition.apiKeyId != null) {
             // apiKeyId 是数字，需要转换为完整的 GUID 格式以匹配下拉选项
             value = buildGUID('APIKey', String(condition.apiKeyId));
+          } else if (condition.type === 'channel' && condition.channelId != null) {
+            value = buildGUID('Channel', String(condition.channelId));
           }
           return {
             type: condition.type,
@@ -332,6 +359,9 @@ export function PromptsActionDialog() {
             return { type: condition.type, modelId: condition.value };
           } else if (condition.type === 'model_pattern') {
             return { type: condition.type, modelPattern: condition.value };
+          } else if (condition.type === 'channel') {
+            const channelId = extractNumberIDAsNumber(condition.value);
+            return { type: condition.type, channelId };
           } else {
             const apiKeyId = extractNumberIDAsNumber(condition.value);
             return { type: condition.type, apiKeyId };
@@ -552,6 +582,7 @@ export function PromptsActionDialog() {
                               t={t}
                               modelOptions={modelOptions}
                               apiKeyOptions={apiKeyOptions}
+                              channelOptions={channelOptions}
                               dialogContentRef={dialogContentRef}
                             />
                           </div>

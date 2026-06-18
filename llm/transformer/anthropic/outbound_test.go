@@ -91,6 +91,31 @@ func TestOutboundTransformer_TransformRequest(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "request with unsupported file content",
+			chatReq: &llm.Request{
+				Model:     "claude-3-sonnet-20240229",
+				MaxTokens: func() *int64 { v := int64(1024); return &v }(),
+				Messages: []llm.Message{
+					{
+						Role: "user",
+						Content: llm.MessageContent{
+							MultipleContent: []llm.MessageContentPart{
+								{
+									Type: "file",
+									File: &llm.File{
+										Filename: "bundle.zip",
+										FileData: "UEsDBAoAAAAA",
+										MIMEType: "application/zip",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
 			name: "request with temperature and stop sequences",
 			chatReq: &llm.Request{
 				Model:       "claude-3-sonnet-20240229",
@@ -186,6 +211,187 @@ func TestOutboundTransformer_TransformRequest(t *testing.T) {
 					require.Equal(t, "test-api-key", result.Auth.APIKey)
 				}
 			}
+		})
+	}
+}
+
+func TestOutboundTransformer_FileSourcesFollowOfficialSchema(t *testing.T) {
+	tests := []struct {
+		name      string
+		file      *llm.File
+		blockType string
+		source    map[string]any
+		wantTitle string
+		wantBeta  bool
+	}{
+		{
+			name: "base64 PDF source",
+			file: &llm.File{
+				Filename: "report.pdf",
+				FileData: "JVBERi0xLjQK",
+				MIMEType: "application/pdf",
+			},
+			blockType: "document",
+			source: map[string]any{
+				"type":       "base64",
+				"media_type": "application/pdf",
+				"data":       "JVBERi0xLjQK",
+			},
+			wantTitle: "report.pdf",
+		},
+		{
+			name: "URL PDF source has no media_type",
+			file: &llm.File{
+				URL:      "https://example.com/report.pdf",
+				MIMEType: "application/pdf",
+			},
+			blockType: "document",
+			source: map[string]any{
+				"type": "url",
+				"url":  "https://example.com/report.pdf",
+			},
+		},
+		{
+			name: "Files API document source",
+			file: &llm.File{
+				Kind:   "document",
+				FileID: "file_011CNha8iCJcU1wXNR6q4V8w",
+			},
+			blockType: "document",
+			source: map[string]any{
+				"type":    "file",
+				"file_id": "file_011CNha8iCJcU1wXNR6q4V8w",
+			},
+			wantBeta: true,
+		},
+		{
+			name: "Files API image source",
+			file: &llm.File{
+				Kind:   "image",
+				FileID: "file_011CPMxVD3fHLUhvTqtsQA5w",
+			},
+			blockType: "image",
+			source: map[string]any{
+				"type":    "file",
+				"file_id": "file_011CPMxVD3fHLUhvTqtsQA5w",
+			},
+			wantBeta: true,
+		},
+		{
+			name: "plain text source uses data field",
+			file: &llm.File{
+				Filename: "notes.csv",
+				FileData: "aGVsbG8sd29ybGQ=",
+				MIMEType: "text/csv",
+			},
+			blockType: "document",
+			source: map[string]any{
+				"type":       "text",
+				"media_type": "text/plain",
+				"data":       "hello,world",
+			},
+			wantTitle: "notes.csv",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outbound, err := NewOutboundTransformer("https://api.anthropic.com", "test-api-key")
+			require.NoError(t, err)
+
+			httpReq, err := outbound.TransformRequest(t.Context(), &llm.Request{
+				Model:     "claude-opus-4-8",
+				MaxTokens: lo.ToPtr(int64(1024)),
+				Messages: []llm.Message{{
+					Role: "user",
+					Content: llm.MessageContent{MultipleContent: []llm.MessageContentPart{{
+						Type: "file",
+						File: tt.file,
+					}}},
+				}},
+			})
+			require.NoError(t, err)
+
+			var payload map[string]any
+			require.NoError(t, json.Unmarshal(httpReq.Body, &payload))
+			messages := payload["messages"].([]any)
+			message := messages[0].(map[string]any)
+			content := message["content"].([]any)
+			block := content[0].(map[string]any)
+			require.Equal(t, tt.blockType, block["type"])
+			require.Equal(t, tt.source, block["source"])
+			if tt.wantTitle != "" {
+				require.Equal(t, tt.wantTitle, block["title"])
+			}
+
+			betas := httpReq.Headers.Values("Anthropic-Beta")
+			if tt.wantBeta {
+				require.Contains(t, betas, "files-api-2025-04-14")
+			} else {
+				require.NotContains(t, betas, "files-api-2025-04-14")
+			}
+		})
+	}
+}
+
+func TestOutboundTransformer_RejectsUnsupportedAnthropicFileSources(t *testing.T) {
+	tests := []struct {
+		name   string
+		config Config
+		file   *llm.File
+		match  string
+	}{
+		{
+			name: "Bedrock rejects Files API file ID",
+			config: Config{
+				Type:           PlatformBedrock,
+				BaseURL:        "https://bedrock-runtime.example.com",
+				APIKeyProvider: auth.NewStaticKeyProvider("test-key"),
+			},
+			file:  &llm.File{Kind: "document", FileID: "file_123"},
+			match: "file_id sources are only supported",
+		},
+		{
+			name: "Bedrock rejects URL document source",
+			config: Config{
+				Type:           PlatformBedrock,
+				BaseURL:        "https://bedrock-runtime.example.com",
+				APIKeyProvider: auth.NewStaticKeyProvider("test-key"),
+			},
+			file:  &llm.File{URL: "https://example.com/report.pdf", MIMEType: "application/pdf"},
+			match: "only supports base64 document sources",
+		},
+		{
+			name: "unsupported image MIME type",
+			config: Config{
+				Type:           PlatformDirect,
+				BaseURL:        "https://api.anthropic.com",
+				APIKeyProvider: auth.NewStaticKeyProvider("test-key"),
+			},
+			file:  &llm.File{FileData: "PHN2Zz48L3N2Zz4=", MIMEType: "image/svg+xml"},
+			match: "only supports JPEG/PNG/GIF/WebP",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outbound, err := NewOutboundTransformerWithConfig(&tt.config)
+			require.NoError(t, err)
+
+			result, err := outbound.TransformRequest(t.Context(), &llm.Request{
+				Model:     "claude-opus-4-8",
+				MaxTokens: lo.ToPtr(int64(1024)),
+				Messages: []llm.Message{{
+					Role: "user",
+					Content: llm.MessageContent{MultipleContent: []llm.MessageContentPart{{
+						Type: "file",
+						File: tt.file,
+					}}},
+				}},
+			})
+			require.Error(t, err)
+			require.Nil(t, result)
+			require.Contains(t, err.Error(), tt.match)
 		})
 	}
 }

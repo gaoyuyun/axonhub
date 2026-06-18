@@ -698,6 +698,24 @@ func convertContentItemToPart(item *Item) (*llm.MessageContentPart, error) {
 
 		return nil, nil
 
+	case "input_file":
+		fileData := ""
+		if item.FileData != nil {
+			fileData = *item.FileData
+		}
+
+		return &llm.MessageContentPart{
+			ID:   item.ID,
+			Type: "file",
+			File: &llm.File{
+				FileID:   item.FileID,
+				FileData: fileData,
+				URL:      item.FileURL,
+				Filename: item.Filename,
+				Detail:   item.Detail,
+			},
+		}, nil
+
 	case "compaction", "compaction_summary":
 		return compactionContentPartFromItem(item, item.Type), nil
 

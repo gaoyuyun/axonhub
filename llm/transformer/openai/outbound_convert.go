@@ -254,6 +254,15 @@ func MessageContentPartFromLLM(p llm.MessageContentPart) MessageContentPart {
 		}
 	}
 
+	if p.File != nil {
+		part.File = &File{
+			FileID:   p.File.FileID,
+			FileData: p.File.InlineData(),
+			Filename: p.File.Filename,
+			MIMEType: p.File.ResolvedMIMEType(),
+		}
+	}
+
 	if p.InputAudio != nil {
 		part.InputAudio = &InputAudio{
 			Format: p.InputAudio.Format,

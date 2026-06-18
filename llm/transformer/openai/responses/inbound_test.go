@@ -1408,6 +1408,42 @@ func TestConvertToMessageContentParts(t *testing.T) {
 			},
 		},
 		{
+			name: "input_file returns file part",
+			input: Input{Items: []Item{
+				{
+					Type:     "input_file",
+					FileData: lo.ToPtr("data:application/pdf;base64,ZmlsZS1kYXRh"),
+					Filename: "report.pdf",
+					Detail:   lo.ToPtr("high"),
+				},
+			}},
+			validate: func(t *testing.T, result []llm.MessageContentPart) {
+				require.Len(t, result, 1)
+				require.Equal(t, "file", result[0].Type)
+				require.NotNil(t, result[0].File)
+				require.Equal(t, "data:application/pdf;base64,ZmlsZS1kYXRh", result[0].File.FileData)
+				require.Equal(t, "report.pdf", result[0].File.Filename)
+				require.Equal(t, "application/pdf", result[0].File.ResolvedMIMEType())
+				require.Equal(t, "high", lo.FromPtr(result[0].File.Detail))
+			},
+		},
+		{
+			name: "input_file URL returns file part",
+			input: Input{Items: []Item{
+				{
+					Type:    "input_file",
+					FileURL: "https://example.com/report.pdf",
+				},
+			}},
+			validate: func(t *testing.T, result []llm.MessageContentPart) {
+				require.Len(t, result, 1)
+				require.Equal(t, "file", result[0].Type)
+				require.NotNil(t, result[0].File)
+				require.Equal(t, "https://example.com/report.pdf", result[0].File.URL)
+				require.Equal(t, "application/pdf", result[0].File.ResolvedMIMEType())
+			},
+		},
+		{
 			name:  "empty items returns empty slice",
 			input: Input{Items: []Item{}},
 			validate: func(t *testing.T, result []llm.MessageContentPart) {
@@ -1479,6 +1515,21 @@ func TestConvertToMessageContent(t *testing.T) {
 				require.Nil(t, result.Content)
 				require.Len(t, result.MultipleContent, 1)
 				require.Equal(t, "image_url", result.MultipleContent[0].Type)
+			},
+		},
+		{
+			name: "single input_file returns MultipleContent",
+			input: Input{Items: []Item{{
+				Type:     "input_file",
+				FileData: lo.ToPtr("ZmlsZS1kYXRh"),
+				Filename: "report.pdf",
+			}}},
+			validate: func(t *testing.T, result llm.MessageContent) {
+				require.Nil(t, result.Content)
+				require.Len(t, result.MultipleContent, 1)
+				require.Equal(t, "file", result.MultipleContent[0].Type)
+				require.NotNil(t, result.MultipleContent[0].File)
+				require.Equal(t, "report.pdf", result.MultipleContent[0].File.Filename)
 			},
 		},
 	}

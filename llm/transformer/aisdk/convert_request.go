@@ -75,20 +75,20 @@ func convertToLLMRequestWithAPIFormat(req *Request, options *ConvertToLLMRequest
 		}
 	}
 
-	// Helper: map file part to LLM content part (image only for now)
+	// Helper: map AI SDK file part to the unified file content part.
 	toContentPartFromFile := func(p UIMessagePart) *llm.MessageContentPart {
 		if p.URL == "" {
 			return nil
 		}
-		// Support images via image_url
-		if strings.HasPrefix(strings.ToLower(p.MediaType), "image/") {
-			return &llm.MessageContentPart{
-				Type:     "image_url",
-				ImageURL: &llm.ImageURL{URL: p.URL},
-			}
-		}
 
-		return nil
+		return &llm.MessageContentPart{
+			Type: "file",
+			File: &llm.File{
+				URL:      p.URL,
+				Filename: p.Filename,
+				MIMEType: p.MediaType,
+			},
+		}
 	}
 
 	// Helper: compact RawMessage to string

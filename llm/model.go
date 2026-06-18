@@ -519,6 +519,10 @@ type MessageContentPart struct {
 	// Supports PDF and other document formats
 	Document *DocumentURL `json:"document,omitempty"`
 
+	// File is the generic file content, required when type is "file"
+	// Supports provider-native file payloads such as file_id/file_data/url.
+	File *File `json:"file,omitempty"`
+
 	// InputAudio is the input audio content, required when type is "input_audio"
 	InputAudio *InputAudio `json:"input_audio,omitempty"`
 

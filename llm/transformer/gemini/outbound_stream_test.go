@@ -48,6 +48,15 @@ func TestOutboundTransformer_TransformStreamChunk(t *testing.T) {
 			},
 		},
 		{
+			name: "metadata-less keepalive chunk returns nil",
+			event: &httpclient.StreamEvent{
+				Data: mustMarshal(&GenerateContentResponse{}),
+			},
+			validateResult: func(t *testing.T, resp *llm.Response) {
+				require.Nil(t, resp)
+			},
+		},
+		{
 			name: "[DONE] marker returns DoneResponse",
 			event: &httpclient.StreamEvent{
 				Data: []byte("[DONE]"),

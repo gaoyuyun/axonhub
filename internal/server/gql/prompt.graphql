@@ -7,6 +7,7 @@ enum PromptActivationConditionType {
   model_id
   model_pattern
   api_key
+  channel
 }
 
 type PromptAction {
@@ -18,6 +19,7 @@ type PromptActivationCondition {
   modelId: String
   modelPattern: String
   apiKeyId: Int
+  channelId: Int
 }
 
 type PromptActivationConditionComposite {
@@ -38,6 +40,7 @@ input PromptActivationConditionInput {
   modelId: String
   modelPattern: String
   apiKeyId: Int
+  channelId: Int
 }
 
 input PromptActivationConditionCompositeInput {

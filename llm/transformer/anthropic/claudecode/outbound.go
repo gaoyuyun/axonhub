@@ -54,6 +54,7 @@ type Params struct {
 	BaseURL         string            // Base URL for the Anthropic API (optional)
 	IsOfficial      bool              // Whether the channel uses official OAuth credentials
 	AccountIdentity string            // Stable channel identity for deterministic user_id (optional)
+	CacheTTL        string            // TTL for cache_control breakpoints (e.g. "5m", "1h")
 }
 
 // NewOutboundTransformer creates a new ClaudeCodeTransformer with OAuth authentication.
@@ -69,8 +70,9 @@ func NewOutboundTransformer(params Params) (*ClaudeCodeTransformer, error) {
 
 	// Create base transformer with minimal config
 	outbound, err := anthropic.NewOutboundTransformerWithConfig(&anthropic.Config{
-		Type:    anthropic.PlatformClaudeCode,
-		BaseURL: baseURL,
+		Type:     anthropic.PlatformClaudeCode,
+		BaseURL:  baseURL,
+		CacheTTL: params.CacheTTL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create outbound transformer: %w", err)
