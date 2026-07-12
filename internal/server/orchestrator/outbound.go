@@ -386,6 +386,7 @@ func (p *PersistentOutboundTransformer) TransformRequest(ctx context.Context, ll
 
 	// Apply channel transform options to create a new request
 	llmRequest = applyTransformOptions(llmRequest, candidate.Channel.Settings)
+	llmRequest = p.injectChannelPrompts(ctx, llmRequest, candidate.Channel.ID)
 	llmRequest = filterResponseCustomToolMessagesForNonResponsesOutbound(llmRequest, p.wrapped.APIFormat())
 
 	if shouldForceStreamingForCandidate(candidate, llmRequest) {
@@ -405,6 +406,32 @@ func (p *PersistentOutboundTransformer) TransformRequest(ctx context.Context, ll
 	}
 
 	return p.wrapped.TransformRequest(ctx, llmRequest)
+}
+
+func (p *PersistentOutboundTransformer) injectChannelPrompts(ctx context.Context, request *llm.Request, channelID int) *llm.Request {
+	if len(p.state.ChannelPrompts) == 0 {
+		return request
+	}
+
+	apiKeyID := 0
+	if p.state.APIKey != nil {
+		apiKeyID = p.state.APIKey.ID
+	}
+
+	matcher := biz.NewPromptMatcher()
+	matchingPrompts := matcher.FilterMatchingPrompts(p.state.ChannelPrompts, p.state.OriginalModel, apiKeyID, channelID)
+	if len(matchingPrompts) == 0 {
+		return request
+	}
+
+	log.Debug(ctx, "injecting channel-specific prompts",
+		log.Int("channel_id", channelID),
+		log.String("original_model", p.state.OriginalModel),
+		log.Int("matching_count", len(matchingPrompts)),
+	)
+
+	cloned := *request
+	return matcher.ApplyPrompts(&cloned, matchingPrompts)
 }
 
 func filterResponseCustomToolMessagesForNonResponsesOutbound(
@@ -485,6 +512,36 @@ func (p *PersistentOutboundTransformer) GetCurrentChannel() *biz.Channel {
 	}
 
 	return p.state.CurrentCandidate.Channel
+}
+
+// GetChannelMaxRetries returns -1 when the current channel inherits the system setting.
+func (p *PersistentOutboundTransformer) GetChannelMaxRetries() int {
+	channel := p.GetCurrentChannel()
+	if channel != nil && channel.Settings != nil && channel.Settings.MaxRetries != nil {
+		return *channel.Settings.MaxRetries
+	}
+
+	return -1
+}
+
+// GetChannelUpstreamTimeoutSeconds returns -1 when the current channel inherits the system setting.
+func (p *PersistentOutboundTransformer) GetChannelUpstreamTimeoutSeconds() int {
+	channel := p.GetCurrentChannel()
+	if channel != nil && channel.Settings != nil && channel.Settings.UpstreamTimeoutSeconds != nil {
+		return *channel.Settings.UpstreamTimeoutSeconds
+	}
+
+	return -1
+}
+
+// GetChannelNonStreamingTimeoutSeconds returns -1 when the current channel inherits the system setting.
+func (p *PersistentOutboundTransformer) GetChannelNonStreamingTimeoutSeconds() int {
+	channel := p.GetCurrentChannel()
+	if channel != nil && channel.Settings != nil && channel.Settings.NonStreamingTimeoutSeconds != nil {
+		return *channel.Settings.NonStreamingTimeoutSeconds
+	}
+
+	return -1
 }
 
 // GetCurrentModelID returns the current model ID for logging purposes.

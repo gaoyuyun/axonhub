@@ -42,6 +42,13 @@ type ChannelCustomizedExecutor interface {
 	CustomizeExecutor(Executor) Executor
 }
 
+// ChannelRetryConfigProvider supplies overrides for the currently selected channel.
+type ChannelRetryConfigProvider interface {
+	GetChannelMaxRetries() int
+	GetChannelUpstreamTimeoutSeconds() int
+	GetChannelNonStreamingTimeoutSeconds() int
+}
+
 // Option defines a pipeline configuration option.
 type Option func(*pipeline)
 
@@ -392,7 +399,7 @@ func (p *pipeline) processRequest(ctx context.Context, request *llm.Request) (*R
 			Stream: true,
 		}
 
-		stream, err := p.stream(ctx, executor, httpReq, p.streamFirstEventTimeout)
+		stream, err := p.stream(ctx, executor, httpReq, p.getStreamFirstEventTimeout())
 		if err != nil {
 			return nil, fmt.Errorf("failed to stream request: %w", err)
 		}
@@ -439,7 +446,33 @@ func (p *pipeline) processRequest(ctx context.Context, request *llm.Request) (*R
 
 // getMaxSameChannelRetries returns the maximum number of same-channel retries.
 func (p *pipeline) getMaxSameChannelRetries() int {
+	if provider, ok := p.Outbound.(ChannelRetryConfigProvider); ok {
+		if value := provider.GetChannelMaxRetries(); value >= 0 {
+			return value
+		}
+	}
+
 	return p.maxSameChannelRetries
+}
+
+func (p *pipeline) getStreamFirstEventTimeout() time.Duration {
+	if provider, ok := p.Outbound.(ChannelRetryConfigProvider); ok {
+		if value := provider.GetChannelUpstreamTimeoutSeconds(); value > 0 {
+			return time.Duration(value) * time.Second
+		}
+	}
+
+	return p.streamFirstEventTimeout
+}
+
+func (p *pipeline) getNonStreamTimeout() time.Duration {
+	if provider, ok := p.Outbound.(ChannelRetryConfigProvider); ok {
+		if value := provider.GetChannelNonStreamingTimeoutSeconds(); value > 0 {
+			return time.Duration(value) * time.Second
+		}
+	}
+
+	return p.nonStreamTimeout
 }
 
 func isResponseTimeoutError(err error) bool {
@@ -447,13 +480,14 @@ func isResponseTimeoutError(err error) bool {
 }
 
 func (p *pipeline) withNonStreamTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
-	if p.nonStreamTimeout <= 0 {
+	timeout := p.getNonStreamTimeout()
+	if timeout <= 0 {
 		return ctx, func() {}
 	}
 
-	return context.WithTimeoutCause(ctx, p.nonStreamTimeout, ErrNonStreamResponseTimeout)
+	return context.WithTimeoutCause(ctx, timeout, ErrNonStreamResponseTimeout)
 }
 
 func (p *pipeline) isNonStreamTimeout(ctx context.Context) bool {
-	return p.nonStreamTimeout > 0 && errors.Is(context.Cause(ctx), ErrNonStreamResponseTimeout)
+	return errors.Is(context.Cause(ctx), ErrNonStreamResponseTimeout)
 }

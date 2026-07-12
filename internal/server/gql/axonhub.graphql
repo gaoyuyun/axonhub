@@ -165,6 +165,10 @@ type ChannelSettings {
   retryableStatusCodes: [Int!]
   retryableErrorPatterns: [RetryableErrorPattern!]
   providerQuota: ChannelProviderQuotaSettings
+  cacheTTL: String
+  maxRetries: Int
+  upstreamTimeoutSeconds: Int
+  nonStreamingTimeoutSeconds: Int
 }
 
 enum CapabilityPolicy {
@@ -203,6 +207,10 @@ input ChannelSettingsInput {
   retryableStatusCodes: [Int!]
   retryableErrorPatterns: [RetryableErrorPatternInput!]
   providerQuota: ChannelProviderQuotaSettingsInput
+  cacheTTL: String
+  maxRetries: Int
+  upstreamTimeoutSeconds: Int
+  nonStreamingTimeoutSeconds: Int
 }
 
 input ChannelRateLimitInput {

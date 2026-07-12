@@ -24,7 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AutoCompleteSelect } from '@/components/auto-complete-select';
 import { SelectDropdown } from '@/components/select-dropdown';
-import { useProxyPresets, useSaveProxyPreset } from '@/features/system/data/system';
+import { useProxyPresets, useRetryPolicy, useSaveProxyPreset } from '@/features/system/data/system';
 import { antigravityOAuthExchange, antigravityOAuthStart } from '../data/antigravity';
 import {
   useCreateChannel,
@@ -332,6 +332,7 @@ export function ChannelsActionDialog({ currentRow, duplicateFromRow, open, onOpe
   const { data: allTags = [], isLoading: isLoadingTags } = useAllChannelTags();
   const { data: proxyPresets = [] } = useProxyPresets();
   const saveProxyPreset = useSaveProxyPreset();
+  const { data: retryPolicy } = useRetryPolicy();
   const [supportedModels, setSupportedModels] = useState<string[]>(() => initialRow?.supportedModels || []);
   const [manualModels, setManualModels] = useState<string[]>(() => initialRow?.manualModels || []);
   const [newModel, setNewModel] = useState('');
@@ -2755,6 +2756,81 @@ export function ChannelsActionDialog({ currentRow, duplicateFromRow, open, onOpe
                           />
                         </div>
                       </FormItem>
+
+                      <FormField
+                        control={form.control}
+                        name='settings.maxRetries'
+                        render={({ field }) => (
+                          <FormItem className='grid grid-cols-1 items-start gap-x-6 gap-y-2 md:grid-cols-8'>
+                            <FormLabel className='pt-2 font-medium md:col-span-2 md:text-right'>
+                              {t('channels.dialogs.fields.maxRetries.label')}
+                            </FormLabel>
+                            <div className='space-y-1 md:col-span-6'>
+                              <Input
+                                type='number'
+                                min={0}
+                                max={10}
+                                placeholder={`${t('channels.dialogs.fields.maxRetries.placeholder')} (${retryPolicy?.maxSingleChannelRetries ?? 2})`}
+                                value={field.value ?? ''}
+                                onChange={(event) => field.onChange(event.target.value === '' ? null : Number.parseInt(event.target.value))}
+                                className='w-40'
+                              />
+                              <p className='text-muted-foreground text-xs'>{t('channels.dialogs.fields.maxRetries.description')}</p>
+                              <FormMessage />
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='settings.upstreamTimeoutSeconds'
+                        render={({ field }) => (
+                          <FormItem className='grid grid-cols-1 items-start gap-x-6 gap-y-2 md:grid-cols-8'>
+                            <FormLabel className='pt-2 font-medium md:col-span-2 md:text-right'>
+                              {t('channels.dialogs.fields.upstreamTimeout.label')}
+                            </FormLabel>
+                            <div className='space-y-1 md:col-span-6'>
+                              <Input
+                                type='number'
+                                min={1}
+                                max={3600}
+                                placeholder={`${t('channels.dialogs.fields.upstreamTimeout.placeholder')} (${retryPolicy?.streamFirstEventTimeoutSeconds ?? 0}s)`}
+                                value={field.value ?? ''}
+                                onChange={(event) => field.onChange(event.target.value === '' ? null : Number.parseInt(event.target.value))}
+                                className='w-40'
+                              />
+                              <p className='text-muted-foreground text-xs'>{t('channels.dialogs.fields.upstreamTimeout.description')}</p>
+                              <FormMessage />
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='settings.nonStreamingTimeoutSeconds'
+                        render={({ field }) => (
+                          <FormItem className='grid grid-cols-1 items-start gap-x-6 gap-y-2 md:grid-cols-8'>
+                            <FormLabel className='pt-2 font-medium md:col-span-2 md:text-right'>
+                              {t('channels.dialogs.fields.nonStreamingTimeout.label')}
+                            </FormLabel>
+                            <div className='space-y-1 md:col-span-6'>
+                              <Input
+                                type='number'
+                                min={1}
+                                max={3600}
+                                placeholder={`${t('channels.dialogs.fields.nonStreamingTimeout.placeholder')} (${retryPolicy?.nonStreamResponseTimeoutSeconds ?? 0}s)`}
+                                value={field.value ?? ''}
+                                onChange={(event) => field.onChange(event.target.value === '' ? null : Number.parseInt(event.target.value))}
+                                className='w-40'
+                              />
+                              <p className='text-muted-foreground text-xs'>{t('channels.dialogs.fields.nonStreamingTimeout.description')}</p>
+                              <FormMessage />
+                            </div>
+                          </FormItem>
+                        )}
+                      />
 
                       <FormField
                         control={form.control}

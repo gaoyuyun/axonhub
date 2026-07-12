@@ -23,6 +23,7 @@ import {
   IconGauge,
   IconHistory,
   IconPlugConnected,
+  IconClockHour4,
 } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,27 @@ import { Channel } from '../data/schema';
 import { ChannelHealthCell } from './channel-health-cell';
 import { ChannelLimiterCell } from './channel-limiter-cell';
 import { ChannelsStatusDialog } from './channels-status-dialog';
+
+const ANTHROPIC_CHANNEL_TYPES = new Set([
+  'anthropic',
+  'claudecode',
+  'anthropic_aws',
+  'anthropic_gcp',
+  'deepseek_anthropic',
+  'doubao_anthropic',
+  'moonshot_anthropic',
+  'zhipu_anthropic',
+  'zai_anthropic',
+  'longcat_anthropic',
+  'minimax_anthropic',
+  'volcengine_anthropic',
+  'aihubmix_anthropic',
+  'xiaomi_anthropic',
+  'evolink_anthropic',
+  'bailian_anthropic',
+  'moonshot_coding',
+  'opencode_go_anthropic',
+]);
 
 const WEIGHT_PRECISION = 4;
 const MIN_WEIGHT = 0;
@@ -224,6 +246,17 @@ const ActionCell = memo(({ row }: { row: Row<Channel> }) => {
             >
               <IconPlayerPlay size={16} className='mr-2' />
               {t('channels.actions.testAPIKeys', { count: apiKeysCount })}
+            </DropdownMenuItem>
+          )}
+          {ANTHROPIC_CHANNEL_TYPES.has(channel.type) && (
+            <DropdownMenuItem
+              onClick={() => {
+                setCurrentRow(channel);
+                setOpen('cacheTTL');
+              }}
+            >
+              <IconClockHour4 size={16} className='mr-2' />
+              {t('channels.dialogs.cacheTTL.action')}
             </DropdownMenuItem>
           )}
           {hasDisabledAPIKeys && (

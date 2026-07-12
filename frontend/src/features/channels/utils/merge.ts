@@ -113,6 +113,10 @@ export function mergeChannelSettingsForUpdate(
     retryableStatusCodes: pick('retryableStatusCodes', existing?.retryableStatusCodes ?? []),
     retryableErrorPatterns: pick('retryableErrorPatterns', existing?.retryableErrorPatterns ?? []),
     providerQuota: pick('providerQuota', existing?.providerQuota ?? null),
+    cacheTTL: pick('cacheTTL', existing?.cacheTTL ?? null),
+    maxRetries: pick('maxRetries', existing?.maxRetries ?? null),
+    upstreamTimeoutSeconds: pick('upstreamTimeoutSeconds', existing?.upstreamTimeoutSeconds ?? null),
+    nonStreamingTimeoutSeconds: pick('nonStreamingTimeoutSeconds', existing?.nonStreamingTimeoutSeconds ?? null),
   };
 }
 

@@ -68,6 +68,25 @@ type testChannelRetryableOutbound struct {
 	prepareRetryCalls int
 }
 
+type testChannelConfigOutbound struct {
+	testChannelRetryableOutbound
+	maxRetries          int
+	upstreamTimeout     int
+	nonStreamingTimeout int
+}
+
+func (t *testChannelConfigOutbound) GetChannelMaxRetries() int {
+	return t.maxRetries
+}
+
+func (t *testChannelConfigOutbound) GetChannelUpstreamTimeoutSeconds() int {
+	return t.upstreamTimeout
+}
+
+func (t *testChannelConfigOutbound) GetChannelNonStreamingTimeoutSeconds() int {
+	return t.nonStreamingTimeout
+}
+
 func (t *testChannelRetryableOutbound) APIFormat() llm.APIFormat {
 	return "test/channel-retryable"
 }
@@ -229,6 +248,24 @@ func TestPipeline_GetMaxSameChannelRetries(t *testing.T) {
 	}
 
 	require.Equal(t, 3, p.getMaxSameChannelRetries())
+}
+
+func TestPipeline_ChannelRetryConfigOverrides(t *testing.T) {
+	outbound := &testChannelConfigOutbound{
+		maxRetries:          5,
+		upstreamTimeout:     12,
+		nonStreamingTimeout: 34,
+	}
+	p := &pipeline{
+		Outbound:                outbound,
+		maxSameChannelRetries:   3,
+		streamFirstEventTimeout: time.Minute,
+		nonStreamTimeout:        2 * time.Minute,
+	}
+
+	require.Equal(t, 5, p.getMaxSameChannelRetries())
+	require.Equal(t, 12*time.Second, p.getStreamFirstEventTimeout())
+	require.Equal(t, 34*time.Second, p.getNonStreamTimeout())
 }
 
 func TestWithRetry(t *testing.T) {

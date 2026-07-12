@@ -18,6 +18,7 @@ type PersistenceState struct {
 	UsageLogService     *biz.UsageLogService
 	ChannelService      *biz.ChannelService
 	PromptProvider      PromptProvider
+	ChannelPrompts      []*ent.Prompt
 	PromptProtecter     PromptProtecter
 	RetryPolicyProvider RetryPolicyProvider
 	CandidateSelector   CandidateSelector

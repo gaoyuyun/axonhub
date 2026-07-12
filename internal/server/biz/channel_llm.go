@@ -170,6 +170,14 @@ func getAPIKeyProvider(ch *Channel) auth.APIKeyProvider {
 	panic(fmt.Errorf("no enabled api key configured for channel %s", ch.Name))
 }
 
+func getChannelCacheTTL(settings *objects.ChannelSettings) string {
+	if settings == nil {
+		return ""
+	}
+
+	return settings.CacheTTL
+}
+
 // BuildOutboundByAPIFormat returns the outbound transformer for a resolved endpoint API format.
 // If the channel does not support the format, returns an error.
 func BuildOutboundByAPIFormat(ch *Channel, apiFormat string) (transformer.Outbound, error) {
@@ -422,6 +430,7 @@ func (svc *ChannelService) buildNonDefaultEndpointOutbound(
 			BaseURL:        baseURL,
 			APIKeyProvider: apiKeyProvider(),
 			EndpointPath:   ep.Path,
+			CacheTTL:       getChannelCacheTTL(ch.Settings),
 		})
 	case llm.APIFormatGeminiContents.String():
 		return gemini.NewOutboundTransformerWithConfig(gemini.Config{
@@ -638,6 +647,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			Type:           anthropic.PlatformLongCat,
 			BaseURL:        c.BaseURL,
 			APIKeyProvider: getAPIKeyProvider(ch),
+			CacheTTL:       getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create outbound transformer: %w", err)
@@ -651,6 +661,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			Type:           anthropic.PlatformDirect,
 			BaseURL:        c.BaseURL,
 			APIKeyProvider: getAPIKeyProvider(ch),
+			CacheTTL:       getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create outbound transformer: %w", err)
@@ -697,6 +708,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 				BaseURL:         c.BaseURL,
 				IsOfficial:      true,
 				AccountIdentity: strconv.Itoa(c.ID),
+				CacheTTL:        getChannelCacheTTL(c.Settings),
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create claudecode outbound transformer: %w", err)
@@ -717,6 +729,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			BaseURL:         c.BaseURL,
 			IsOfficial:      false,
 			AccountIdentity: strconv.Itoa(c.ID),
+			CacheTTL:        getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create claudecode outbound transformer: %w", err)
@@ -730,6 +743,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			Type:           anthropic.PlatformDeepSeek,
 			BaseURL:        c.BaseURL,
 			APIKeyProvider: getAPIKeyProvider(ch),
+			CacheTTL:       getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create outbound transformer: %w", err)
@@ -743,6 +757,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			Type:           anthropic.PlatformDoubao,
 			BaseURL:        c.BaseURL,
 			APIKeyProvider: getAPIKeyProvider(ch),
+			CacheTTL:       getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create outbound transformer: %w", err)
@@ -756,6 +771,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			Type:           anthropic.PlatformMoonshot,
 			BaseURL:        c.BaseURL,
 			APIKeyProvider: getAPIKeyProvider(ch),
+			CacheTTL:       getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create outbound transformer: %w", err)
@@ -769,6 +785,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			Type:           anthropic.PlatformZhipu,
 			BaseURL:        c.BaseURL,
 			APIKeyProvider: getAPIKeyProvider(ch),
+			CacheTTL:       getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create outbound transformer: %w", err)
@@ -782,6 +799,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			Type:           anthropic.PlatformZai,
 			BaseURL:        c.BaseURL,
 			APIKeyProvider: getAPIKeyProvider(ch),
+			CacheTTL:       getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create outbound transformer: %w", err)
@@ -796,6 +814,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			Type:           anthropic.PlatformBedrock,
 			BaseURL:        c.BaseURL,
 			APIKeyProvider: getAPIKeyProvider(ch),
+			CacheTTL:       getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create outbound transformer: %w", err)
@@ -816,6 +835,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			Region:    c.Credentials.GCP.Region,
 			ProjectID: c.Credentials.GCP.ProjectID,
 			JSONData:  c.Credentials.GCP.JSONData,
+			CacheTTL:  getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create outbound transformer: %w", err)
@@ -884,6 +904,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			Type:           anthropic.PlatformDirect,
 			BaseURL:        c.BaseURL,
 			APIKeyProvider: getAPIKeyProvider(ch),
+			CacheTTL:       getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create outbound transformer: %w", err)
@@ -897,6 +918,7 @@ func (svc *ChannelService) buildChannelWithTransformer(c *ent.Channel, apiKeyOve
 			Type:           anthropic.PlatformDirect,
 			BaseURL:        c.BaseURL,
 			APIKeyProvider: getAPIKeyProvider(ch),
+			CacheTTL:       getChannelCacheTTL(c.Settings),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create outbound transformer: %w", err)

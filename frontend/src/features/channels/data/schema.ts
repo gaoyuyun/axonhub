@@ -261,6 +261,10 @@ export const channelSettingsSchema = z.object({
   retryableStatusCodes: z.array(z.number().int().min(400).max(599)).optional().nullable(),
   retryableErrorPatterns: z.array(retryableErrorPatternSchema).optional().nullable(),
   providerQuota: channelProviderQuotaSettingsSchema.optional().nullable(),
+  cacheTTL: z.string().optional().nullable(),
+  maxRetries: z.number().int().min(0).max(10).optional().nullable(),
+  upstreamTimeoutSeconds: z.number().int().min(1).max(3600).optional().nullable(),
+  nonStreamingTimeoutSeconds: z.number().int().min(1).max(3600).optional().nullable(),
 });
 
 export type ChannelSettings = z.infer<typeof channelSettingsSchema>;

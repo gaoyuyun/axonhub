@@ -211,6 +211,18 @@ type ChannelSettings struct {
 	// ProviderQuota stores provider-specific credentials used only for quota
 	// polling. Keep upstream request credentials in ChannelCredentials.
 	ProviderQuota *ChannelProviderQuotaSettings `json:"providerQuota,omitempty"`
+
+	// CacheTTL configures Anthropic cache-control breakpoints. Empty uses the provider default.
+	CacheTTL string `json:"cacheTTL,omitempty"`
+
+	// MaxRetries overrides the system same-channel retry limit.
+	MaxRetries *int `json:"maxRetries,omitempty"`
+
+	// UpstreamTimeoutSeconds overrides the streaming first-event timeout.
+	UpstreamTimeoutSeconds *int `json:"upstreamTimeoutSeconds,omitempty"`
+
+	// NonStreamingTimeoutSeconds overrides the non-streaming response timeout.
+	NonStreamingTimeoutSeconds *int `json:"nonStreamingTimeoutSeconds,omitempty"`
 }
 
 type RetryableErrorPattern struct {

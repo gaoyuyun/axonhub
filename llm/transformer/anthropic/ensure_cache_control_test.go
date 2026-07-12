@@ -980,3 +980,21 @@ func TestEnsureCacheControl_OpenCodePluginScenario(t *testing.T) {
 		assert.Equal(t, 3, countCacheControls(req))
 	})
 }
+
+func TestOptimizeCacheControl_WithCacheTTL(t *testing.T) {
+	req := &MessageRequest{
+		Tools: []Tool{{Name: "tool"}},
+		Messages: []MessageParam{{
+			Role:    "user",
+			Content: MessageContent{Content: lo.ToPtr("hello")},
+		}},
+	}
+
+	optimizeCacheControl(req, "1h")
+
+	require.NotNil(t, req.Tools[0].CacheControl)
+	require.Equal(t, "1h", req.Tools[0].CacheControl.TTL)
+	require.Len(t, req.Messages[0].Content.MultipleContent, 1)
+	require.NotNil(t, req.Messages[0].Content.MultipleContent[0].CacheControl)
+	require.Equal(t, "1h", req.Messages[0].Content.MultipleContent[0].CacheControl.TTL)
+}

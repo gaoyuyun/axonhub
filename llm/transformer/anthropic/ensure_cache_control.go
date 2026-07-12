@@ -14,13 +14,18 @@ const (
 //   - 消息首选“最后一条消息的最后一个可缓存块”，更贴近官方示例
 //   - 第 2 个消息锚点优先落在“距离末尾约 20 块”的窗口边界
 //   - thinking 与空 text 不允许打点
-func optimizeCacheControl(req *MessageRequest) {
+func optimizeCacheControl(req *MessageRequest, cacheTTLs ...string) {
+	cacheTTL := ""
+	if len(cacheTTLs) > 0 {
+		cacheTTL = cacheTTLs[0]
+	}
+
 	// 统一归一化：将 Content 字符串形式转为 MultipleContent 数组，
 	// 后续所有函数只处理数组格式，消除隐式结构改写副作用。
 	normalizeMessageContents(req)
 	clearCacheControls(req)
 
-	structural := ensureStructuralCacheControls(req)
+	structural := ensureStructuralCacheControls(req, cacheTTL)
 
 	remaining := maxCacheControlBreakpoints - structural
 	if remaining <= 0 {
@@ -29,7 +34,7 @@ func optimizeCacheControl(req *MessageRequest) {
 
 	refs := collectMessageBlockRefs(req)
 	messageAnchors := min(desiredMessageCacheAnchors(len(refs)), remaining)
-	injectPlannedMessageCacheControls(refs, messageAnchors)
+	injectPlannedMessageCacheControls(refs, messageAnchors, cacheTTL)
 
 	// 最终安全检查：确保 thinking 和空 text 块上不会被意外注入 cache_control。
 	sanitizeUnsupportedCacheControls(req)
@@ -54,11 +59,11 @@ func normalizeMessageContents(req *MessageRequest) {
 // ensureStructuralCacheControls 确保 tools 和 system 的最后一个元素有 cache_control，
 // 返回实际注入的结构锚点数量。
 // 这些位置内容稳定、每次请求重复发送，是 Anthropic 推荐的缓存锚点。
-func ensureStructuralCacheControls(req *MessageRequest) int {
+func ensureStructuralCacheControls(req *MessageRequest, cacheTTL string) int {
 	count := 0
 
 	if len(req.Tools) > 0 {
-		req.Tools[len(req.Tools)-1].CacheControl = &CacheControl{Type: "ephemeral"}
+		req.Tools[len(req.Tools)-1].CacheControl = newCacheControl(cacheTTL)
 		count++
 	}
 
@@ -68,7 +73,7 @@ func ensureStructuralCacheControls(req *MessageRequest) int {
 
 	if len(req.System.MultiplePrompts) > 0 {
 		last := len(req.System.MultiplePrompts) - 1
-		req.System.MultiplePrompts[last].CacheControl = &CacheControl{Type: "ephemeral"}
+		req.System.MultiplePrompts[last].CacheControl = newCacheControl(cacheTTL)
 		count++
 
 		return count
@@ -82,7 +87,7 @@ func ensureStructuralCacheControls(req *MessageRequest) int {
 		req.System.MultiplePrompts = []SystemPromptPart{{
 			Type:         "text",
 			Text:         text,
-			CacheControl: &CacheControl{Type: "ephemeral"},
+			CacheControl: newCacheControl(cacheTTL),
 		}}
 		count++
 	}
@@ -116,21 +121,30 @@ func desiredMessageCacheAnchors(cacheableBlocks int) int {
 	return 1
 }
 
-func injectPlannedMessageCacheControls(refs []**CacheControl, target int) {
+func injectPlannedMessageCacheControls(refs []**CacheControl, target int, cacheTTL string) {
 	if target <= 0 || len(refs) == 0 {
 		return
 	}
 
 	// 第一优先级：最后一个可缓存块（官方推荐会话末尾断点）。
-	*refs[len(refs)-1] = &CacheControl{Type: "ephemeral"}
+	*refs[len(refs)-1] = newCacheControl(cacheTTL)
 
 	// 第二优先级（仅需要多个消息锚点时）：末尾前 20 blocks 的窗口边界。
 	if target > 1 {
 		idx := pickWindowAnchorIndex(refs, adaptiveCacheControlBlockWindow)
 		if idx >= 0 {
-			*refs[idx] = &CacheControl{Type: "ephemeral"}
+			*refs[idx] = newCacheControl(cacheTTL)
 		}
 	}
+}
+
+func newCacheControl(cacheTTL string) *CacheControl {
+	cacheControl := &CacheControl{Type: "ephemeral"}
+	if cacheTTL != "" {
+		cacheControl.TTL = cacheTTL
+	}
+
+	return cacheControl
 }
 
 // pickWindowAnchorIndex 在 refs 中选择距离末尾 window 个位置的未标记锚点。
