@@ -379,7 +379,8 @@ export function RequestDetailContent({ requestId, projectId, previewRequest, isP
         </CardContent>
       </Card>
 
-      {usageLogs &&
+      {request.status === 'completed' &&
+        usageLogs &&
         usageLogs.edges.length > 0 &&
         (() => {
           const usage = usageLogs.edges[0].node;

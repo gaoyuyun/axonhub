@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ColumnDef } from '@tanstack/react-table';
 import { IconRoute, IconArrowsJoin2 } from '@tabler/icons-react';
@@ -26,6 +27,21 @@ interface UseRequestsColumnsOptions {
   onViewDetail?: (requestId: string) => void;
 }
 
+function normalizeBlockedIPs(ips: string[]) {
+  return Array.from(
+    new Set(
+      ips
+        .map((ip) => ip.trim())
+        .filter((ip) => ip.length > 0)
+    )
+  );
+}
+
+function getCompletedUsageLog(request: Request) {
+  if (request.status !== 'completed') return undefined;
+  return request.usageLogs?.edges?.[0]?.node;
+}
+
 export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnDef<Request>[] {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'zh' ? zhCN : enUS;
@@ -33,24 +49,15 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
   const { hasScope } = usePermissions();
   const { data: settings } = useGeneralSettings();
   const { data: securitySettings } = useSecuritySettings();
-  const updateSecuritySettings = useUpdateSecuritySettings();
+  const { mutateAsync: updateSecuritySettings, isPending: isUpdatingSecuritySettings } = useUpdateSecuritySettings();
   const { navigateWithSearch } = usePaginationSearch({ defaultPageSize: 20 });
   const [displayMode, setDisplayMode] = useDisplayMode();
   const canManageSecuritySettings = hasScope('write_settings');
 
-  const blockedIPs = securitySettings?.blockedIPs ?? [];
+  const blockedIPs = useMemo(() => securitySettings?.blockedIPs ?? [], [securitySettings?.blockedIPs]);
   const showIPBanIcon = securitySettings?.showRequestLogIPBanIcon === true;
 
-  const normalizeBlockedIPs = (ips: string[]) =>
-    Array.from(
-      new Set(
-        ips
-          .map((ip) => ip.trim())
-          .filter((ip) => ip.length > 0)
-      )
-    );
-
-  const handleBlockIP = async (clientIP: string) => {
+  const handleBlockIP = useCallback(async (clientIP: string) => {
     const normalizedIP = clientIP.trim();
     if (!normalizedIP) return;
 
@@ -60,19 +67,19 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
       return;
     }
 
-    await updateSecuritySettings.mutateAsync({ blockedIPs: nextBlockedIPs });
-  };
+    await updateSecuritySettings({ blockedIPs: nextBlockedIPs });
+  }, [blockedIPs, t, updateSecuritySettings]);
 
-  const handleUnblockIP = async (clientIP: string) => {
+  const handleUnblockIP = useCallback(async (clientIP: string) => {
     const normalizedIP = clientIP.trim();
     if (!normalizedIP) return;
 
     const nextBlockedIPs = blockedIPs.filter((ip) => ip.trim() !== normalizedIP);
-    await updateSecuritySettings.mutateAsync({ blockedIPs: nextBlockedIPs });
-  };
+    await updateSecuritySettings({ blockedIPs: nextBlockedIPs });
+  }, [blockedIPs, updateSecuritySettings]);
 
   // Define all columns
-  const columns: ColumnDef<Request>[] = [
+  return useMemo<ColumnDef<Request>[]>(() => [
     {
       accessorKey: 'id',
       header: ({ column }) => <DataTableColumnHeader column={column} title={t('common.columns.id')} />,
@@ -270,7 +277,7 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
                       variant='ghost'
                       size='icon-sm'
                       className='h-6 w-6 shrink-0 rounded-full text-red-500/80 hover:bg-red-50 hover:text-red-600 dark:text-red-300/80 dark:hover:bg-red-950/30 dark:hover:text-red-300'
-                      disabled={updateSecuritySettings.isPending}
+                      disabled={isUpdatingSecuritySettings}
                       onClick={(e) => {
                         e.stopPropagation();
                         void handleUnblockIP(normalizedIP);
@@ -290,7 +297,7 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
                       variant='ghost'
                       size='icon-sm'
                       className='text-muted-foreground h-6 w-6 shrink-0 rounded-md border border-dashed border-transparent hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-800/50 dark:hover:bg-red-950/30 dark:hover:text-red-300'
-                      disabled={updateSecuritySettings.isPending}
+                      disabled={isUpdatingSecuritySettings}
                       onClick={(e) => {
                         e.stopPropagation();
                         void handleBlockIP(normalizedIP);
@@ -425,13 +432,13 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
     {
       id: 'tokens',
       accessorFn: (row) => {
-        const usageLog = row.usageLogs?.edges?.[0]?.node;
+        const usageLog = getCompletedUsageLog(row);
         return (usageLog?.promptTokens || 0) + (usageLog?.completionTokens || 0);
       },
       header: ({ column }) => <DataTableColumnHeader column={column} title={t('requests.columns.tokens')} />,
       cell: ({ row }) => {
         const request = row.original;
-        const usageLog = request.usageLogs?.edges?.[0]?.node;
+        const usageLog = getCompletedUsageLog(request);
 
         if (!usageLog) {
           return <div className='text-muted-foreground text-xs'>-</div>;
@@ -464,21 +471,21 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
       enableHiding: true,
       sortingFn: (rowA, rowB) => {
         const a =
-          (rowA.original.usageLogs?.edges?.[0]?.node?.promptTokens || 0) +
-          (rowA.original.usageLogs?.edges?.[0]?.node?.completionTokens || 0);
+          (getCompletedUsageLog(rowA.original)?.promptTokens || 0) +
+          (getCompletedUsageLog(rowA.original)?.completionTokens || 0);
         const b =
-          (rowB.original.usageLogs?.edges?.[0]?.node?.promptTokens || 0) +
-          (rowB.original.usageLogs?.edges?.[0]?.node?.completionTokens || 0);
+          (getCompletedUsageLog(rowB.original)?.promptTokens || 0) +
+          (getCompletedUsageLog(rowB.original)?.completionTokens || 0);
         return a - b;
       },
     },
     {
       id: 'readCache',
-      accessorFn: (row) => row.usageLogs?.edges?.[0]?.node?.promptCachedTokens || 0,
+      accessorFn: (row) => getCompletedUsageLog(row)?.promptCachedTokens || 0,
       header: ({ column }) => <DataTableColumnHeader column={column} title={t('requests.columns.readCache')} />,
       cell: ({ row }) => {
         const request = row.original;
-        const usageLog = request.usageLogs?.edges?.[0]?.node;
+        const usageLog = getCompletedUsageLog(request);
 
         if (!usageLog) {
           return <div className='text-muted-foreground text-xs'>-</div>;
@@ -508,18 +515,18 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
       enableSorting: true,
       enableHiding: true,
       sortingFn: (rowA, rowB) => {
-        const a = rowA.original.usageLogs?.edges?.[0]?.node?.promptCachedTokens || 0;
-        const b = rowB.original.usageLogs?.edges?.[0]?.node?.promptCachedTokens || 0;
+        const a = getCompletedUsageLog(rowA.original)?.promptCachedTokens || 0;
+        const b = getCompletedUsageLog(rowB.original)?.promptCachedTokens || 0;
         return a - b;
       },
     },
     {
       id: 'writeCache',
-      accessorFn: (row) => row.usageLogs?.edges?.[0]?.node?.promptWriteCachedTokens || 0,
+      accessorFn: (row) => getCompletedUsageLog(row)?.promptWriteCachedTokens || 0,
       header: ({ column }) => <DataTableColumnHeader column={column} title={t('requests.columns.writeCache')} />,
       cell: ({ row }) => {
         const request = row.original;
-        const usageLog = request.usageLogs?.edges?.[0]?.node;
+        const usageLog = getCompletedUsageLog(request);
 
         if (!usageLog) {
           return <div className='text-muted-foreground text-xs'>-</div>;
@@ -546,22 +553,22 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
       enableSorting: true,
       enableHiding: true,
       sortingFn: (rowA, rowB) => {
-        const a = rowA.original.usageLogs?.edges?.[0]?.node?.promptWriteCachedTokens || 0;
-        const b = rowB.original.usageLogs?.edges?.[0]?.node?.promptWriteCachedTokens || 0;
+        const a = getCompletedUsageLog(rowA.original)?.promptWriteCachedTokens || 0;
+        const b = getCompletedUsageLog(rowB.original)?.promptWriteCachedTokens || 0;
         return a - b;
       },
     },
     {
       id: 'cost',
       accessorFn: (row) => {
-        const usageLog = row.usageLogs?.edges?.[0]?.node;
+        const usageLog = getCompletedUsageLog(row);
         return usageLog?.totalCost ?? null;
       },
       header: ({ column }) => <DataTableColumnHeader column={column} title={t('requests.columns.cost')} />,
       enableSorting: false,
       enableHiding: true,
       cell: ({ row }) => {
-        const usageLog = row.original.usageLogs?.edges?.[0]?.node;
+        const usageLog = getCompletedUsageLog(row.original);
         const cost = usageLog?.totalCost;
         if (cost === undefined || cost === null) return <div className='font-mono text-xs'>-</div>;
 
@@ -670,6 +677,23 @@ export function useRequestsColumns(options?: UseRequestsColumnsOptions): ColumnD
       enableSorting: false,
       enableHiding: true,
     },
-  ];
-  return columns;
+  ], [
+    blockedIPs,
+    canManageSecuritySettings,
+    displayMode,
+    handleBlockIP,
+    handleUnblockIP,
+    i18n.language,
+    isUpdatingSecuritySettings,
+    locale,
+    navigateWithSearch,
+    options?.onBodyClick,
+    options?.onViewDetail,
+    permissions.canViewApiKeys,
+    permissions.canViewChannels,
+    setDisplayMode,
+    settings?.currencyCode,
+    showIPBanIcon,
+    t,
+  ]);
 }

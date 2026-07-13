@@ -12,7 +12,6 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import type { DateTimeRangeValue } from '@/utils/date-range';
 import { useAnimatedList } from '@/hooks/useAnimatedList';
@@ -23,8 +22,6 @@ import { Request, RequestConnection } from '../data/schema';
 import { DataTableToolbar } from './data-table-toolbar';
 import { RequestBodyDrawer } from './request-body-drawer';
 import { useRequestsColumns } from './requests-columns';
-
-const MotionTableRow = motion.create(TableRow);
 
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -233,35 +230,22 @@ export function RequestsTable({
               {loading ? (
                 <TableSkeleton rows={pageSize} columns={requestsColumns.length} />
               ) : table.getRowModel().rows?.length ? (
-                <AnimatePresence initial={false} mode='popLayout'>
-                  {table.getRowModel().rows.map((row) => (
-                    <MotionTableRow
-                      key={row.id}
-                      data-state={row.getIsSelected() && 'selected'}
-                      initial={{ opacity: 0, y: -20, height: 0 }}
-                      animate={{ opacity: 1, y: 0, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{
-                        type: 'spring',
-                        stiffness: 500,
-                        damping: 30,
-                        mass: 1,
-                        opacity: { duration: 0.2 },
-                      }}
-                      layout
-                      className='group/row hover:bg-muted/50 data-[state=selected]:bg-muted'
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell
-                          key={cell.id}
-                          className={`${cell.column.columnDef.meta?.className ?? ''} border-b border-[var(--table-border)] py-3 group-last/row:border-0`}
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
-                    </MotionTableRow>
-                  ))}
-                </AnimatePresence>
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && 'selected'}
+                    className='group/row hover:bg-muted/50 data-[state=selected]:bg-muted'
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={`${cell.column.columnDef.meta?.className ?? ''} border-b border-[var(--table-border)] py-3 group-last/row:border-0`}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
               ) : (
                 <TableRow className='!bg-[var(--table-background)]'>
                   <TableCell colSpan={requestsColumns.length} className='h-24 !bg-[var(--table-background)] text-center'>
